@@ -1,0 +1,15 @@
+Pablo Arnalte-Mur - 19/02/2014
+
+In this directory, we plan to implement a complete "simple" HOD model for 
+2-point clustering, based on the Coupon et al. (2002) model. The differences
+with respect to this model (which make this "simpler") are these:
+
+- Do not consider the scale-dependent halo bias (eq. A13)
+- Do not consider the exclusion effect in the 2-halo term: Mlim(r) in eq. (A20),
+  and the related calculations in eqs. (A21-A24)
+- Do not consider Mvir(r) limit in the 1-halo central-satellite term (eq. A17)
+- Allow use of different HOD models (probably simpler)
+
+Part of this code will be based in older, partially buggy code in the
+'old_reference_code' directory.
+
