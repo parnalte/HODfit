@@ -9,6 +9,7 @@ with respect to this model (which make this "simpler") are these:
   and the related calculations in eqs. (A21-A24)
 - Do not consider Mvir(r) limit in the 1-halo central-satellite term (eq. A17)
 - Allow use of different HOD models (probably simpler)
+- Use the halo model (mass function, bias function) from Mo&White (2002) instead of those from Sheth&Tormen (1999), Sheth et al. (2001)
 
 Part of this code will be based in older, partially buggy code in the
 'old_reference_code' directory.
