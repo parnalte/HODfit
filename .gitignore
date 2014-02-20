@@ -3,5 +3,7 @@
 *.x
 *.pyc
 \#*
-
-
+*.log
+*synctex*
+*.aux
+*.pdf
