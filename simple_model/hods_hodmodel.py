@@ -16,6 +16,7 @@
 import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
+import hods_halomodel as hm
 
 
 class HODModel():
@@ -91,3 +92,185 @@ class HODModel():
         return nt
 
         
+####################
+##DERIVED QUANTITIES
+###################
+
+#Perform the integrations following that done for
+#HaloModelMW02.integral_quantities()
+
+        
+def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the mean galaxy number density according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (14) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+    nsteps = len(mass_array)
+
+    nbins = nsteps - 1
+
+    sum_ngal = 0.
+
+    for i in range(nbins):
+
+        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
+        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
+        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
+
+        Nt_gals_bin = hod_instance.n_total(M_mean)
+
+        sum_ngal = sum_ngal + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+
+    return sum_ngal
+
+
+
+
+def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the mean galaxy bias according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (13) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+    nsteps = len(mass_array)
+
+    nbins = nsteps - 1
+
+    sum_bgal = 0.
+    sum_ndens = 0.
+
+    for i in range(nbins):
+
+        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
+        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
+        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
+
+        Nt_gals_bin = hod_instance.n_total(M_mean)
+        bias_bin = halo_instance.bias_fmass(mass=M_mean)
+
+
+        sum_bgal = sum_bgal + (bias_bin*Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+
+    mean_bias_gals = sum_bgal/sum_ndens
+
+    return mean_bias_gals
+    
+
+
+
+def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the HOD-averaged mean halo mass according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (15) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+    nsteps = len(mass_array)
+
+    nbins = nsteps - 1
+
+    sum_mass = 0.
+    sum_ndens = 0.
+
+    for i in range(nbins):
+
+        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
+        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
+        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
+
+        Nt_gals_bin = hod_instance.n_total(M_mean)
+
+        sum_mass = sum_mass + (M_mean*Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+
+    mean_mass = sum_mass/sum_ndens
+
+    return mean_mass
+    
+    
+def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the fraction of central galaxies per halo according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (16) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+    nsteps = len(mass_array)
+
+    nbins = nsteps - 1
+
+    sum_cent = 0.
+    sum_ndens = 0.
+
+    for i in range(nbins):
+
+        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
+        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
+        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
+
+        Nt_gals_bin = hod_instance.n_total(M_mean)
+        Nc_gals_bin = hod_instance.n_centrals(M_mean)
+
+        sum_cent = sum_cent + (Nc_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+
+    fract_cent = sum_cent/sum_ndens
+
+    return fract_cent
+
+
+
+    
+def fraction_satellites(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the fraction of satellites galaxies per halo according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (17) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    f_cent = fraction_centrals(hod_instance=hod_instance, halo_instance=halo_instance, logM_min=logM_min,
+                               logM_max=logM_max, logM_step=logM_step)
+
+    return 1.0 - f_cent
+
+
+    
+    
