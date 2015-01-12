@@ -3,13 +3,18 @@
 
    Author: P. Arnalte-Mur (ICC-Durham)
    Creation date: 19/02/2014
-   Last modified: 19/02/2014
+   Last modified: ---
 
+   TODO:
+        - Change to a free (or my own) implementation of the Hankel transforms to get xi(r).
+          An option is the library in https://pypi.python.org/pypi/hankel/0.1.0
+          Other is to write it myself using functions in scipy.special
 """
 
 
 import numpy as np
 import astropy.cosmology as ac
+import hankel
 
 ##GLOBAL CONSTANTS
 
@@ -54,5 +59,26 @@ class PowerSpectrum:
         else:
             self.k = kvals
             self.pk = pkvals
+
+
+
+    def pkinterp(self, kval):
+        """ Function that interpolates linearly the power spectrum using the given values.
+        """
+
+        return np.interp(x=kval, xp=self.k, fp=self.pk)
+
+
+    def xir(self, rvals):
+        """ Function that performs a Hankel transform to obtain the 2-point correlation function
+            corresponding to the power spectrum.
+            Using the Hankel library from CosmoPy.
+        """
+
+        hankel_instance = hankel.Hankel(dim=3)
+        xivals = hankel_instance.transform(f=self.pkinterp, x=rvals, pk2xi=True)
+
+        return xivals
+
         
         
