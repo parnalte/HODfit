@@ -315,7 +315,22 @@ class HODClustering():
 
         return xir_total
 
-    
+
+    def xi_all(self, rvalues):
+        """Computes all the relevant correlation functions at once (just combine previous functions together)
+        """
+
+        xi_cs = self.xi_centsat(rvalues)
+        xi_ss = self.xi_satsat(rvalues)
+        xi_2h = self.xi_2h(rvalues)
+
+        xi_1h = xi_cs + xi_ss
+
+        xi_tot = 1. + xi_1h + xi_2h
+
+        return xi_tot, xi_2h, xi_1h, xi_cs, xi_ss
+
+        
 
         
         
