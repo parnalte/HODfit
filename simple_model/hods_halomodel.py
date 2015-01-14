@@ -26,7 +26,9 @@ from hods_utils import RHO_CRIT_UNITS, PowerSpectrum
 
 def delta_c_z(redshift=0, cosmo=ac.WMAP7):
     """Computes the linear critical density delta_c for a given cosmology
-       and redshift. Computed from equation (A.3) in C2012
+       and redshift. Computed from equation (A.3) in C2012.
+
+       The function works correctly when 'redshift' is an array.
     """
     omz = cosmo.Om(redshift)
     result = (3./20.)*pow(12.*np.pi, 2./3.)*(1. + (0.013*np.log10(omz)))
@@ -35,7 +37,9 @@ def delta_c_z(redshift=0, cosmo=ac.WMAP7):
 
 def gz(redshift=0, cosmo=ac.WMAP7):
     """Auxiliar function needed to compute the linear growth factor.
-       Defined as in eq. (10) of MW02
+       Defined as in eq. (10) of MW02.
+
+       The function works correctly when 'redshift' is an array.
     """
 
     omz = cosmo.Om(redshift)
@@ -46,7 +50,9 @@ def gz(redshift=0, cosmo=ac.WMAP7):
     
 def growth_factor_linear(redshift=0, cosmo=ac.WMAP7):
     """Computes the growth factor for linear fluctuations, D(z), as defined
-       by eq.(10) in MW02
+       by eq.(10) in MW02.
+
+       The function works correctly when 'redshift' is an array.
     """
 
     gval_z = gz(redshift=redshift, cosmo=cosmo)
@@ -57,8 +63,10 @@ def growth_factor_linear(redshift=0, cosmo=ac.WMAP7):
 
 def R_rms(mass=1e10, cosmo=ac.WMAP7):
     """Computes the radius of the filter adequate for a given mass
-       to compute rms fluctuation in eq. (A5) of C2012
-       Input mass in M_sol, output radius in Mpc/h
+       to compute rms fluctuation in eq. (A5) of C2012.
+       Input mass in M_sol, output radius in Mpc/h.
+
+       The function works correctly when 'redshift' is an array.
     """
 
     mass_dens = RHO_CRIT_UNITS*cosmo.Om0
@@ -78,23 +86,35 @@ def sigma_radius(radius = 8.0, powesp=None):
     """Computes the rms density fluctuations in a top-hat filter of width radius
        computed from the given power spectrum. From eq. (A5) in C2012.
        Length units should be consistent between radius and powesp.
+
+       Adapted to work correctly when 'radius' is an array. Should be improved
+       to do this in a more 'pythonic' (and fast) way
     """
 
-    #We do the integral using a simple trapezium rule given the k-values
-    #at which the P(k) is sampled
-    x2=powesp.k[1:]
-    x1=powesp.k[:-1]
+    #Convert input to array if it is not, and check it is only 1D!
+    radius = np.atleast_1d(radius)
+    assert radius.ndim == 1
 
+    Nr = len(radius)
+    sigma = np.empty(Nr,float)
+
+    for i, r in enumerate(radius):
     
-    wvalues = w_tophat_fourier(radius*powesp.k)
-    integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
+        #We do the integral using a simple trapezium rule given the k-values
+        #at which the P(k) is sampled
+        x2=powesp.k[1:]
+        x1=powesp.k[:-1]
 
-    y2 = integrand_array[1:]
-    y1 = integrand_array[:-1]
-    comb_array = 0.5*(y2+y1)*(x2-x1)
-    integ_result = comb_array.sum()
+        wvalues = w_tophat_fourier(r*powesp.k)
+        integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
 
-    sigma = np.sqrt(integ_result/(2.*(np.pi**2)))
+        y2 = integrand_array[1:]
+        y1 = integrand_array[:-1]
+        comb_array = 0.5*(y2+y1)*(x2-x1)
+        integ_result = comb_array.sum()
+
+        sigma[i] = np.sqrt(integ_result/(2.*(np.pi**2)))
+        
     return sigma
 
 
@@ -104,6 +124,8 @@ def sigma_mass(mass = 1e10, cosmo = ac.WMAP7, powesp_lin_0 = None):
        Units: masses in M_sol, distances (and powesp) in Mpc/h
        The power spectrum should be the z=0, linear power spectrum corresponding
        to the Cosmology 'cosmo' used.
+
+       The function works correctly when 'redshift' is an array.
     """
 
     #First, get the corresponding radius of the filter
@@ -112,6 +134,8 @@ def sigma_mass(mass = 1e10, cosmo = ac.WMAP7, powesp_lin_0 = None):
     #And now, get sigma
     return sigma_radius(radius=R, powesp=powesp_lin_0)
 
+
+    
 def nu_variable(mass = 1e10, redshift = 0, cosmo = ac.WMAP7, powesp_lin_0=None):
     """Make the conversion from halo mass to the 'nu' variable,
        for a given cosmology and redshift.
@@ -119,6 +143,9 @@ def nu_variable(mass = 1e10, redshift = 0, cosmo = ac.WMAP7, powesp_lin_0=None):
        Units: masses in M_sol, distances (and powesp) in Mpc/h
        The power spectrum should be the z=0, linear power spectrum corresponding
        to the Cosmology 'cosmo' used.
+
+       The function works correctly when either 'mass' OR 'redshift' are an array,
+       but NOT when BOTH inputs are arrays.
     """
 
     dc = delta_c_z(redshift=redshift, cosmo=cosmo)
@@ -159,24 +186,22 @@ class HaloModelMW02():
 
     def nu_variable(self, mass = 1e12):
         """Make the conversion from halo mass to the 'nu' variable,
-        for a given cosmology and redshift.
-        This is from eq. (A2) in C2012.
-        Units: masses in M_sol, distances (and powesp) in Mpc/h
-        The power spectrum should be the z=0, linear power spectrum corresponding
-        to the Cosmology 'cosmo' used.
+           for a given cosmology and redshift.
+           Wrapper over external function 'nu_variable'.
+
+           This function works correctly when 'mass' is an array.
         """
 
-        dc = delta_c_z(redshift=self.redshift, cosmo=self.cosmo)
-        Dz = growth_factor_linear(redshift=self.redshift, cosmo=self.cosmo)
-        sig = sigma_mass(mass=mass, cosmo=self.cosmo, powesp_lin_0=self.powesp_lin_0)
-
-        return dc/(Dz*sig)
-
-
+        return nu_variable(mass=mass, redshift=self.redshift, cosmo=self.cosmo,
+                           powesp_lin_0=self.powesp_lin_0)
+        
         
     def bias_nu(self, nuval):
         """Bias function (as function of nu) defined in eq. (19) of MW02
+
+           This function works correctly when 'nuval' is an array.
         """
+        
         nu_alt = np.sqrt(self.par_a)*nuval
         dc = delta_c_z(redshift=self.redshift, cosmo=self.cosmo)
 
@@ -192,6 +217,8 @@ class HaloModelMW02():
 
     def bias_fmass(self, mass = 1e12):
         """Bias function for haloes of a fixed mass, from above
+
+           This function works correctly when 'mass' is an array.
         """
 
         nuval = self.nu_variable(mass=mass)
@@ -205,6 +232,8 @@ class HaloModelMW02():
            has to be at z=0!
            In order to get the appropriate integral terms, should integrate
            ndens_differential*dnu
+
+           This function works correctly when 'mass' is an array.
         """
 
         nuval = self.nu_variable(mass=mass)
