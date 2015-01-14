@@ -62,7 +62,9 @@ def integral_centsatterm(rvalue, hod_instance=None, halo_instance=None,
         profile_instance = densprofile.HaloProfileNFW(mass=M_mean, redshift=redshift,
                                                       cosmo=cosmo, powesp_lin_0=powesp_lin_0)
 
-        dens_profile_bin = profile_instance.profile_config(r=rvalue)/M_mean
+        ##Profile actually has to be normalised!!
+        ##(just from dimensional analysis!)
+        dens_profile_bin = profile_instance.profile_config(r=rvalue)/M_mean  
         ndens_bin = halo_instance.ndens_differential(mass=M_mean)
         
         sum_integral = sum_integral + (ndens_bin*Nc_gals_bin*Ns_gals_bin*dens_profile_bin*(nu_2 - nu_1))

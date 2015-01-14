@@ -5,8 +5,8 @@
 \usepackage{amssymb}
 \usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
 
-\title{Description of the HOD model computed by the ``HOD simple mode'' code}
-\author{Pablo Arnalte-Mur (ICC-Durham)}
+\title{Description of the HOD model computed by the ``HOD simple model'' code}
+\author{Pablo Arnalte-Mur (ICC-Durham/OAUV-Valencia)}
 
 \begin{document}
 \maketitle
@@ -48,8 +48,13 @@ This is calculated in direct space as
 
 If we assume a Poisson distribution for the number of galaxies in each halo,
 \begin{equation}
-1 + \xi_{CS}(r) = \frac{2}{n_{gal}^2} \int_0^{+\infty} \mathrm{d}M n(M,z) \left[N_C(M) N_S(M)\right]\rho_h(r|M)
+1 + \xi_{CS}(r) = \frac{2}{n_{gal}^2} \int_0^{+\infty} \mathrm{d}M n(M,z) \left[N_C(M) N_S(M)\right] \frac{\rho_h(r|M)}{M}
 \end{equation}
+
+Note that the radial profile has to be normalised, hence the $M$ in the denominator in the end. 
+This is missing from eq. A17 of Coupon et a. (2002), but even dimensional analysis shows that it should be there (as here, we take $\rho_h(r|M)$ to be the \emph{un-normalised} profile, which integrates to $M$).
+
+
 
 Here
 \begin{itemize}
