@@ -19,6 +19,7 @@
 
 import numpy as np
 import astropy.cosmology as ac
+from scipy import integrate
 from hods_utils import RHO_CRIT_UNITS, PowerSpectrum
 
 
@@ -99,19 +100,13 @@ def sigma_radius(radius = 8.0, powesp=None):
     sigma = np.empty(Nr,float)
 
     for i, r in enumerate(radius):
-    
-        #We do the integral using a simple trapezium rule given the k-values
-        #at which the P(k) is sampled
-        x2=powesp.k[1:]
-        x1=powesp.k[:-1]
+
+        #We do the integral using Simpson's rule, as implemented
+        #in SciPy's library
 
         wvalues = w_tophat_fourier(r*powesp.k)
         integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
-
-        y2 = integrand_array[1:]
-        y1 = integrand_array[:-1]
-        comb_array = 0.5*(y2+y1)*(x2-x1)
-        integ_result = comb_array.sum()
+        integ_result = integrate.simps(x=powesp.k, y=integrand_array)
 
         sigma[i] = np.sqrt(integ_result/(2.*(np.pi**2)))
         
