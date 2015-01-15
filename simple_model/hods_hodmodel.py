@@ -178,7 +178,7 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, l
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
 
-        if mass_array[0] > hod_instance.mass_min:
+    if mass_array[0] > hod_instance.mass_min:
         raise UserWarning("In function 'bias_gal_mean': not using all the mass range allowed by HOD!")
 
     nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
