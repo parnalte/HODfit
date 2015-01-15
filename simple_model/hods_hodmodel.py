@@ -179,7 +179,7 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, l
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
 
     if mass_array[0] > hod_instance.mass_min:
-        raise UserWarning("In function 'bias_gal_mean': not using all the mass range allowed by HOD!")
+        raise UserWarning("In function 'mean_halo_mass_hod': not using all the mass range allowed by HOD!")
 
     nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
     nt_gals = hod_instance.n_total(mass=mass_array)
@@ -188,124 +188,7 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, l
 
     return integrate.simps(y=(mass_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
 
-    
-        
-def dens_galaxies_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
-    """Computes the mean galaxy number density according to the combination
-       of a halo distribution model and an HOD model.
-       Following eq. (14) in C2012.
 
-       hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
-    """
-
-    #Check the mass array makes sense
-    assert logM_min > 0 
-    assert logM_max > logM_min
-    assert logM_step > 0
-
-    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-
-    nbins = nsteps - 1
-
-    sum_ngal = 0.
-
-    for i in range(nbins):
-
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nt_gals_bin = hod_instance.n_total(M_mean)
-
-        sum_ngal = sum_ngal + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-
-    return sum_ngal
-
-
-
-
-def bias_gal_mean_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
-    """Computes the mean galaxy bias according to the combination
-       of a halo distribution model and an HOD model.
-       Following eq. (13) in C2012.
-
-       hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
-    """
-
-    #Check the mass array makes sense
-    assert logM_min > 0 
-    assert logM_max > logM_min
-    assert logM_step > 0
-
-    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-
-    nbins = nsteps - 1
-
-    sum_bgal = 0.
-    sum_ndens = 0.
-
-    for i in range(nbins):
-
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nt_gals_bin = hod_instance.n_total(M_mean)
-        bias_bin = halo_instance.bias_fmass(mass=M_mean)
-
-
-        sum_bgal = sum_bgal + (bias_bin*Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-
-    mean_bias_gals = sum_bgal/sum_ndens
-
-    return mean_bias_gals
-    
-
-
-
-def mean_halo_mass_hod_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
-    """Computes the HOD-averaged mean halo mass according to the combination
-       of a halo distribution model and an HOD model.
-       Following eq. (15) in C2012.
-
-       hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
-    """
-
-    #Check the mass array makes sense
-    assert logM_min > 0 
-    assert logM_max > logM_min
-    assert logM_step > 0
-
-    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-
-    nbins = nsteps - 1
-
-    sum_mass = 0.
-    sum_ndens = 0.
-
-    for i in range(nbins):
-
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nt_gals_bin = hod_instance.n_total(M_mean)
-
-        sum_mass = sum_mass + (M_mean*Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-
-    mean_mass = sum_mass/sum_ndens
-
-    return mean_mass
-    
-    
 def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
     """Computes the fraction of central galaxies per halo according to the combination
        of a halo distribution model and an HOD model.
@@ -321,30 +204,17 @@ def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, lo
     assert logM_step > 0
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
 
-    nbins = nsteps - 1
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'fraction_centrals': not using all the mass range allowed by HOD!")
 
-    sum_cent = 0.
-    sum_ndens = 0.
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nc_gals = hod_instance.n_centrals(mass=mass_array)
 
-    for i in range(nbins):
-
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nt_gals_bin = hod_instance.n_total(M_mean)
-        Nc_gals_bin = hod_instance.n_centrals(M_mean)
-
-        sum_cent = sum_cent + (Nc_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-        sum_ndens = sum_ndens + (Nt_gals_bin*halo_instance.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-
-    fract_cent = sum_cent/sum_ndens
-
-    return fract_cent
+    dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
 
 
+    return integrate.simps(y=(nc_gals*nd_diff_array), x=mass_array)/dens_gal_tot
 
     
 def fraction_satellites(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
