@@ -14,12 +14,20 @@
    References in comments:
        C2012: Coupon et al. (2012) A&A, 542:A5
        MW02:  Mo & White (2002) MNRAS, 336:112
+
+
+   TODO:
+      (Possibly): compute integrals over mass using Gaussian quadrature (Scipy's 'quad'), so
+                  we avoid the need to (arbitrarily) define a spacing in logM.
+                  This would only work if we transform ndens_diff_m so that we can integrate in
+                  d(logM), instead of d(M).
 """
 
 
 import numpy as np
 import astropy.cosmology as ac
 from scipy import integrate
+from scipy import misc
 from hods_utils import RHO_CRIT_UNITS, PowerSpectrum
 
 
@@ -246,11 +254,32 @@ class HaloModelMW02():
         return term1*term2*term3*term4
 
 
-        
+
+    def ndens_diff_m(self, mass = 1e12, delta_m_rel=1e-4):
+        """Calculates the 'differential' part of eq. (14) in MW02 including the nu-to-mass transform.
+           In this way, now the integral terms can be obtained integrating directly
+           ndens_diff_m*dM
+
+           This will be just a wrapper over ndens_differential() adding the differential term dnu/dM.
+
+           The delta_m_rel parameter sets the relative spacing to be used in the finite differences approximation
+           of the derivative.
+
+           This function works well when 'mass' is an array.
+        """
+
+        dnudM = misc.derivative(func = self.nu_variable, x0 = mass, dx = delta_m_rel*mass, n=1)
+
+        return dnudM*self.ndens_differential(mass=mass)
+
+
     def ndens_integral(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
-        """Basically, just do the integral of the function above, given a range (and binning) in halo mass.
-           This will give the mass function: number density of haloes in a given mass range.
-           Define the mass ranges in log10 space, units of M_sol
+        """Compute the total number density of haloes given a range (and binning) in halo mass.
+
+           Define the mass ranges in log10 space, units of M_sol.
+
+           We will use simple Simpson integration rule, using Scipy's function for this.
+
         """
 
         assert logM_min > 0 
@@ -258,21 +287,54 @@ class HaloModelMW02():
         assert logM_step > 0
 
         mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-        nsteps = len(mass_array)
 
-        nbins = nsteps - 1
+        nd_diff_array = self.ndens_diff_m(mass=mass_array)
 
-        sum_ndens = 0
-        for i in range(nbins):
+        return integrate.simps(y=nd_diff_array, x=mass_array)
+        
 
-            M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-            nu_1 = self.nu_variable(mass=mass_array[i])
-            nu_2 = self.nu_variable(mass=mass_array[i+1])
+    def mean_bias(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+        """Compute the mean halo bias given a range (and binning) in halo mass.
 
-            sum_ndens = sum_ndens + (self.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
+           Define the mass ranges in log10 space, units of M_sol.
 
-        return sum_ndens
+           We will integrate the bias over the mass function, using Scipy's
+           function for Simpson's integration rule.
+        """
 
+        assert logM_min > 0 
+        assert logM_max > logM_min
+        assert logM_step > 0
+
+        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+
+        nd_diff_array = self.ndens_diff_m(mass=mass_array)
+        bias_array = self.bias_fmass(mass=mass_array)
+
+        return integrate.simps(y=(bias_array*nd_diff_array), x=mass_array)/self.ndens_integral(logM_min, logM_max, logM_step)
+
+
+    def mean_mass(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+        """Compute the mean halo mass given a range (and binning) in halo mass.
+
+           Define the mass ranges in log10 space, units of M_sol.
+
+           We will integrate the mass over the mass function, using Scipy's
+           function for Simpson's integration rule.
+        """
+        
+        assert logM_min > 0 
+        assert logM_max > logM_min
+        assert logM_step > 0
+
+        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+
+        nd_diff_array = self.ndens_diff_m(mass=mass_array)
+
+        return integrate.simps(y=(mass_array*nd_diff_array), x=mass_array)/self.ndens_integral(logM_min, logM_max, logM_step)
+
+
+        
     def integral_quantities(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
         """For a given range of masses (and integration steps), compute the interesting
            integral quantites doing an integral over the differential mass function:
@@ -282,40 +344,25 @@ class HaloModelMW02():
            - Mean bias for the given range
            - Mean halo mass for the given range
 
-        Define the mass ranges in log10 space, units of M_sol
+           Define the mass ranges in log10 space, units of M_sol.
+
+           Using SciPy's Simpson integration function
         """
-        
+
         assert logM_min > 0 
         assert logM_max > logM_min
         assert logM_step > 0
 
         mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-        nsteps = len(mass_array)
 
-        nbins = nsteps - 1
+        nd_diff_array = self.ndens_diff_m(mass=mass_array)
+        bias_array = self.bias_fmass(mass=mass_array)
 
-        sum_ndens = 0.
-        sum_bias = 0.
-        sum_mass = 0.
+        ndens_integral = integrate.simps(y=nd_diff_array, x=mass_array)
+        mean_bias = integrate.simps(y=(bias_array*nd_diff_array), x=mass_array)/ndens_integral
+        mean_mass = integrate.simps(y=(mass_array*nd_diff_array), x=mass_array)/ndens_integral
 
-        for i in range(nbins):
-
-            M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-            nu_1 = self.nu_variable(mass=mass_array[i])
-            nu_2 = self.nu_variable(mass=mass_array[i+1])
-            bias_bin = self.bias_fmass(mass=M_mean)
-
-            sum_ndens = sum_ndens + (self.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-            sum_bias = sum_bias + (bias_bin*self.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-            sum_mass = sum_mass + (M_mean*self.ndens_differential(mass=M_mean)*(nu_2 - nu_1))
-
-        bias_mean = sum_bias/sum_ndens
-        mass_mean = sum_mass/sum_ndens
-
-        return sum_ndens, bias_mean, mass_mean
-
-    
-
+        return ndens_integral, mean_bias, mean_mass
 
 
         
