@@ -16,6 +16,7 @@
 import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
+from scipy import integrate
 import hods_halomodel as hm
 
 
@@ -52,13 +53,18 @@ class HODModel():
     def n_centrals(self, mass=1e12):
         """Returns mean number of central galaxies in a halo of mass 'mass',
            according to this HOD model
+
+           Adapted to work correctly when 'mass' is an array.
         """
 
+        #Convert input to array if it is not, and check it is only 1D!
+        mass = np.atleast_1d(mass)
+        assert mass.ndim == 1
+        
         if(self.hod_type == 1):
-            if(mass > self.mass_min):
-                nc = 1.0
-            else:
-                nc = 0.0
+
+            #1 if m>mass_min, 0 if m<=mass_min
+            nc = np.array((mass > self.mass_min), float)
 
         elif(self.hod_type == 2):
 
@@ -69,17 +75,20 @@ class HODModel():
 
     def n_satellites(self, mass=1e12):
         """Returns mean number of satellite galaxies in a halo of mass 'mass',
-           according to this HOD model
+           according to this HOD model.
+
+           Adapted to work correctly when 'mass' is an array.
         """
+        
+        #Convert input to array if it is not, and check it is only 1D!
+        mass = np.atleast_1d(mass)
+        assert mass.ndim == 1
 
         if(self.hod_type == 1):
             ns = self.n_centrals(mass)*pow(mass/self.mass_1, self.alpha)
 
         if(self.hod_type == 2):
-            if(mass > self.mass_0):
-                ns = pow((mass - self.mass_0)/self.mass_1, self.alpha)
-            else:
-                ns = 0.0
+            ns = np.where(mass > self.mass_0, pow((mass - self.mass_0)/self.mass_1, self.alpha), 0.0)
 
         return ns
 
@@ -115,6 +124,87 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
     assert logM_step > 0
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'dens_galaxies': not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nt_gals = hod_instance.n_total(mass=mass_array)
+
+    return integrate.simps(y=(nt_gals*nd_diff_array), x=mass_array)
+    
+    
+def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the mean galaxy bias according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (13) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'bias_gal_mean': not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nt_gals = hod_instance.n_total(mass=mass_array)
+    bias_haloes_array = halo_instance.bias_fmass(mass=mass_array)
+
+    dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
+
+    return integrate.simps(y=(bias_haloes_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+    
+
+def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the HOD-averaged mean halo mass according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (15) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+
+        if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'bias_gal_mean': not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nt_gals = hod_instance.n_total(mass=mass_array)
+
+    dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
+
+    return integrate.simps(y=(mass_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+
+    
+        
+def dens_galaxies_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+    """Computes the mean galaxy number density according to the combination
+       of a halo distribution model and an HOD model.
+       Following eq. (14) in C2012.
+
+       hod_instance: an instance of the HODModel class
+       halo_instance: an instance of the hm.HaloModelMW02 class
+    """
+
+    #Check the mass array makes sense
+    assert logM_min > 0 
+    assert logM_max > logM_min
+    assert logM_step > 0
+
+    mass_array = 10**np.arange(logM_min, logM_max, logM_step)
     nsteps = len(mass_array)
 
     nbins = nsteps - 1
@@ -136,7 +226,7 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
 
 
 
-def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+def bias_gal_mean_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
     """Computes the mean galaxy bias according to the combination
        of a halo distribution model and an HOD model.
        Following eq. (13) in C2012.
@@ -178,7 +268,7 @@ def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
 
 
 
-def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+def mean_halo_mass_hod_old(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
     """Computes the HOD-averaged mean halo mass according to the combination
        of a halo distribution model and an HOD model.
        Following eq. (15) in C2012.
