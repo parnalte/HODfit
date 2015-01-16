@@ -62,7 +62,7 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
     Nm = len(mass_array)
 
     if mass_array[0] > hod_instance.mass_min:
-        raise UserWarning("In function 'integral_centsatterm':
+        raise UserWarning("In function 'integral_centsatterm': \
                           not using all the mass range allowed by HOD!")
 
     nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
@@ -85,48 +85,55 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
                            x=mass_array)
     
     
-def integral_satsatterm(kvalue, hod_instance=None, halo_instance=None,
+def integral_satsatterm(kvalues, hod_instance=None, halo_instance=None,
                         logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                         redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
     """
     This function computes the integral needed to get the satellite-satellite
     term in the HOD clustering model, at a particular value of the
-    wavenumber 'k'.
+    wavenumber 'k', or an array of k values.
     Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
     NFW profile at each value of the mass.
     Following eq. (6) in 'model_definition.tex'
+
+    Adapted to work efficiently for input 'k'arrays.
+    The routine will return an array of the same length as 'kvalues'
     """
 
+    #Convert input to array if it is not, and check it is only 1D!
+    kvalues = np.atleast_1d(kvalues)
+    assert kvalues.ndim == 1
+    Nk = len(kvalues)
+    
     #Check the mass array makes sense
     assert logM_min > 0
     assert logM_max > logM_min
     assert logM_step > 0
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-    nbins = nsteps - 1
+
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'integral_satsatterm': \
+                          not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    ns_gals = hod_instance.n_satellites(mass=mass_array)
+
+    profile_instance = densprofile.HaloProfileNFW(mass=mass_array,
+                                                  redshift=redshift,
+                                                  cosmo=cosmo,
+                                                  powesp_lin_0=powesp_lin_0)
+
+
+    #Compute the Fourier-space profile at all the scales 'kvalues'
+    #for all our mass values
+    #Output array will have shape (Nk, Nm), which is the correct one to
+    #pass to integration routine
+    dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+    dprof_term = pow(np.absolute(dprofile_fourier), 2)
     
-    sum_integral = 0.
-
-    for i in range(nbins):
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Ns_gals_bin = hod_instance.n_satellites(M_mean)
-
-        profile_instance = densprofile.HaloProfileNFW(mass=M_mean,
-                                                      redshift=redshift,
-                                                      cosmo=cosmo,
-                                                      powesp_lin_0=powesp_lin_0)
-
-        dens_profile_bin = np.absolute(profile_instance.profile_fourier(k=kvalue))
-        ndens_bin = halo_instance.ndens_differential(mass=M_mean)
-        
-        sum_integral = sum_integral + (ndens_bin*pow(Ns_gals_bin,2)*pow(dens_profile_bin, 2)*(nu_2 - nu_1))
-
-    return sum_integral
-
+    return integrate.simps(y=(nd_diff_array*ns_gals*ns_gals*dprof_term),
+                           x=mass_array)
 
 
 
@@ -251,13 +258,7 @@ class HODClustering():
 
         Nk = len(kvalues)
 
-        int_ss_k = np.empty(Nk,float)
-
-        for i,k in enumerate(kvalues):
-
-            print "Computing P_satsat for k-value %d of %d" % (i, Nk)
-            
-            int_ss_k[i] = integral_satsatterm(kvalue=k, hod_instance=self.hod,
+        int_ss_k = integral_satsatterm(kvalues=kvalues, hod_instance=self.hod,
                                               halo_instance=self.halomodel,
                                               logM_min=self.logM_min,
                                               logM_max=self.logM_max,
@@ -265,7 +266,7 @@ class HODClustering():
                                               redshift=self.redshift,
                                               cosmo=self.cosmo,
                                               powesp_lin_0=self.powesp_lin_0)
-
+                
         pkvals = int_ss_k/pow(self.gal_dens, 2.)
 
         self.pk_satsat = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
