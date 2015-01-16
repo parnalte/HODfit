@@ -1,16 +1,18 @@
 
 """
-   hods_clustering.py --- Clustering-related function/classes for the simple HOD model
+    hods_clustering.py --- Clustering-related function/classes
+        for the simple HOD model
 
-   Author: P. Arnalte-Mur (ICC-Durham)
-   Creation date: 19/02/2014
-   Last modified: --
+    Author: P. Arnalte-Mur (ICC-Durham)
+    Creation date: 19/02/2014
+    Last modified: --
 
-   This module will contain the classes and functions related to the clustering
-   predictions (i.e. 1- and 2-halo terms for the power spectrum/correlation function)
+    This module will contain the classes and functions related to
+    the clustering predictions (i.e. 1- and 2-halo terms for the
+    power spectrum/correlation function)
 
-   Apart from other assumptions implied elsewhere, we assume a Poisson distribution for
-   the number of galaxies in each halo.
+    Apart from other assumptions implied elsewhere, we assume a
+    Poisson distribution for the number of galaxies in each halo.
 """
 
 import numpy as np
@@ -34,14 +36,16 @@ from hods_utils import PowerSpectrum
 def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
                          logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                          redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
-    """This function computes the integral needed to get the central-satellite term
-       in the HOD clustering model, at a particular value of the scale 'r', or an array of r values.
-       Parameters 'redshift, cosmo, powep_lin_0' are needed to define the NFW profile
-       at each value of the mass.
-       Following eq. (4) in 'model_definition.tex'
+    """
+    This function computes the integral needed to get the central-satellite
+    term in the HOD clustering model, at a particular value of the scale 'r',
+    or an array of r values.
+    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
+    NFW profile at each value of the mass.
+    Following eq. (4) in 'model_definition.tex'
 
-       Adapted to work efficiently for input 'r' arrays.
-       The routine will return an array of the same length as 'rvalues'
+    Adapted to work efficiently for input 'r' arrays.
+    The routine will return an array of the same length as 'rvalues'
     """
 
     #Convert input to array if it is not, and check it is only 1D!
@@ -58,7 +62,8 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
     Nm = len(mass_array)
 
     if mass_array[0] > hod_instance.mass_min:
-        raise UserWarning("In function 'integral_centsatterm': not using all the mass range allowed by HOD!")
+        raise UserWarning("In function 'integral_centsatterm':
+                          not using all the mass range allowed by HOD!")
 
     nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
     nc_gals = hod_instance.n_centrals(mass=mass_array)
@@ -69,7 +74,7 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
                                                   cosmo=cosmo,
                                                   powesp_lin_0=powesp_lin_0)
     
-    #Compute the profile at all the scales 'rvalue' for our all our mass values
+    #Compute the profile at all the scales 'rvalue' for all our mass values
     #Output array will have shape (Nr, Nm), which
     #is the correct one to pass to integration routine
     #Include the needed normalisation
@@ -83,11 +88,13 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
 def integral_satsatterm(kvalue, hod_instance=None, halo_instance=None,
                         logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                         redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
-    """This function computes the integral needed to get the satellite-satellite term
-       in the HOD clustering model, at a particular value of the wavenumber 'k'.
-       Parameters 'redshift, cosmo, powep_lin_0' are needed to define the NFW profile
-       at each value of the mass.
-       Following eq. (6) in 'model_definition.tex'
+    """
+    This function computes the integral needed to get the satellite-satellite
+    term in the HOD clustering model, at a particular value of the
+    wavenumber 'k'.
+    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
+    NFW profile at each value of the mass.
+    Following eq. (6) in 'model_definition.tex'
     """
 
     #Check the mass array makes sense
@@ -108,8 +115,10 @@ def integral_satsatterm(kvalue, hod_instance=None, halo_instance=None,
 
         Ns_gals_bin = hod_instance.n_satellites(M_mean)
 
-        profile_instance = densprofile.HaloProfileNFW(mass=M_mean, redshift=redshift,
-                                                      cosmo=cosmo, powesp_lin_0=powesp_lin_0)
+        profile_instance = densprofile.HaloProfileNFW(mass=M_mean,
+                                                      redshift=redshift,
+                                                      cosmo=cosmo,
+                                                      powesp_lin_0=powesp_lin_0)
 
         dens_profile_bin = np.absolute(profile_instance.profile_fourier(k=kvalue))
         ndens_bin = halo_instance.ndens_differential(mass=M_mean)
@@ -124,11 +133,12 @@ def integral_satsatterm(kvalue, hod_instance=None, halo_instance=None,
 def integral_2hterm(kvalue, hod_instance=None, halo_instance=None,
                     logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                     redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
-    """This function computes the integral needed to get the 2-halo term
-       in the HOD clustering model, at a particular value of the wavenumber 'k'.
-       Parameters 'redshift, cosmo, powep_lin_0' are needed to define the NFW profile
-       at each value of the mass.
-       Following eq. (7) in 'model_definition.tex'
+    """
+    This function computes the integral needed to get the 2-halo term
+    in the HOD clustering model, at a particular value of the wavenumber 'k'.
+    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
+    NFW profile at each value of the mass.
+    Following eq. (7) in 'model_definition.tex'
     """
 
     #Check the mass array makes sense
@@ -150,8 +160,10 @@ def integral_2hterm(kvalue, hod_instance=None, halo_instance=None,
         Nt_gals_bin = hod_instance.n_total(M_mean)
         bias_bin = halo_instance.bias_fmass(mass=M_mean)
 
-        profile_instance = densprofile.HaloProfileNFW(mass=M_mean, redshift=redshift,
-                                                      cosmo=cosmo, powesp_lin_0=powesp_lin_0)
+        profile_instance = densprofile.HaloProfileNFW(mass=M_mean,
+                                                      redshift=redshift,
+                                                      cosmo=cosmo,
+                                                      powesp_lin_0=powesp_lin_0)
 
         dens_profile_bin = np.absolute(profile_instance.profile_fourier(k=kvalue))
         ndens_bin = halo_instance.ndens_differential(mass=M_mean)
@@ -165,8 +177,10 @@ def integral_2hterm(kvalue, hod_instance=None, halo_instance=None,
 
 
 class HODClustering():
-    """Class that contains a full model for the galaxy clustering for a particular model, defined by
-       Cosmology+redshift+halo model+HOD model+NFW profile
+    """
+    Class that contains a full model for the galaxy clustering for
+    a particular model, defined by
+    Cosmology+redshift+halo model+HOD model+NFW profile
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
@@ -197,14 +211,18 @@ class HODClustering():
         self.pk_2h     = None
 
 
-        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod, halo_instance=self.halomodel,
-                                               logM_min=self.logM_min, logM_max=self.logM_max,
+        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
+                                               halo_instance=self.halomodel,
+                                               logM_min=self.logM_min,
+                                               logM_max=self.logM_max,
                                                logM_step=self.logM_step)
 
 
 
     def xi_centsat(self, rvalues):
-        """ Computes the xi for the central-satellite term at the scales given by 'rvalues'
+        """
+        Computes the xi for the central-satellite term at the scales
+        given by 'rvalues'
         """
 
         Nr = len(rvalues)
@@ -225,8 +243,10 @@ class HODClustering():
 
 
     def get_pk_satsat(self, kvalues):
-        """ Computes the power spectrum for the satellite-satellite term at the scales given by 'kvalues'.
-            Stores the result in self.pk_satsat as a PowerSpectrum instance
+        """
+        Computes the power spectrum for the satellite-satellite term
+        at the scales given by 'kvalues'.
+        Stores the result in self.pk_satsat as a PowerSpectrum instance
         """
 
         Nk = len(kvalues)
@@ -237,10 +257,14 @@ class HODClustering():
 
             print "Computing P_satsat for k-value %d of %d" % (i, Nk)
             
-            int_ss_k[i] = integral_satsatterm(kvalue=k, hod_instance=self.hod, halo_instance=self.halomodel,
-                                               logM_min=self.logM_min, logM_max=self.logM_max,
-                                               logM_step=self.logM_step, redshift=self.redshift,
-                                               cosmo=self.cosmo, powesp_lin_0=self.powesp_lin_0)
+            int_ss_k[i] = integral_satsatterm(kvalue=k, hod_instance=self.hod,
+                                              halo_instance=self.halomodel,
+                                              logM_min=self.logM_min,
+                                              logM_max=self.logM_max,
+                                              logM_step=self.logM_step,
+                                              redshift=self.redshift,
+                                              cosmo=self.cosmo,
+                                              powesp_lin_0=self.powesp_lin_0)
 
         pkvals = int_ss_k/pow(self.gal_dens, 2.)
 
@@ -251,9 +275,11 @@ class HODClustering():
 
         
     def xi_satsat(self, rvalues):
-        """ Computes the xi for satellite-satellite term at the scales given by 'rvalues'
-            First, we check if we have already computed the corresponding P(k) and, if that is not the case,
-            we compute it.
+        """
+        Computes the xi for satellite-satellite term at the scales
+        given by 'rvalues'
+        First, we check if we have already computed the corresponding P(k)
+        and, if that is not the case, we compute it.
         """
 
         if self.pk_satsat is None:
@@ -267,9 +293,10 @@ class HODClustering():
 
     
     def get_pk_2h(self):
-        """ Computes the power spectrum for the 2-halo term.
-            We compute it at the same k-values in which P(k) for matter is given.
-            Stores the result in self.pk_2h as a PowerSpectrum instance
+        """
+        Computes the power spectrum for the 2-halo term.
+        We compute it at the same k-values in which P(k) for matter is given.
+        Stores the result in self.pk_2h as a PowerSpectrum instance
         """
 
         kvalues = self.powesp_matter.k
@@ -282,10 +309,14 @@ class HODClustering():
 
             print "Computing P_2h for k-value %d of %d" % (i, Nk)
 
-            int_2h_k[i] = integral_2hterm(kvalue=k, hod_instance=self.hod, halo_instance=self.halomodel,
-                                          logM_min=self.logM_min, logM_max=self.logM_max,
-                                          logM_step=self.logM_step, redshift=self.redshift,
-                                          cosmo=self.cosmo, powesp_lin_0=self.powesp_lin_0)
+            int_2h_k[i] = integral_2hterm(kvalue=k, hod_instance=self.hod,
+                                          halo_instance=self.halomodel,
+                                          logM_min=self.logM_min,
+                                          logM_max=self.logM_max,
+                                          logM_step=self.logM_step,
+                                          redshift=self.redshift,
+                                          cosmo=self.cosmo,
+                                          powesp_lin_0=self.powesp_lin_0)
 
 
         pkvals = self.powesp_matter.pk*int_2h_k*int_2h_k/pow(self.gal_dens, 2)
@@ -294,9 +325,10 @@ class HODClustering():
             
         
     def xi_2h(self, rvalues):
-        """ Computes the xi for the 2-halo term at the scales given by 'rvalues'
-            First, we check if we have already computed the corresponding P(k) and, if that is not the case,
-            we compute it.
+        """
+        Computes the xi for the 2-halo term at the scales given by 'rvalues'
+        First, we check if we have already computed the corresponding
+        P(k) and, if that is not the case, we compute it.
         """
 
         if self.pk_2h is None:
@@ -308,7 +340,9 @@ class HODClustering():
 
 
     def xi_1h(self, rvalues):
-        """ Computes the 1-halo correlation function term from combining cent-sat and sat-sat terms
+        """
+        Computes the 1-halo correlation function term from combining
+        cent-sat and sat-sat terms
         """
 
         xir_1h = self.xi_centsat(rvalues) + self.xi_satsat(rvalues)
@@ -316,7 +350,9 @@ class HODClustering():
         return xir_1h
 
     def xi_total(self, rvalues):
-        """ Computes the total (1h + 2h) correlation function from the previous functions
+        """
+        Computes the total (1h + 2h) correlation function from the
+        previous functions
         """
 
         xir_total = 1. + self.xi_1h(rvalues) + self.xi_2h(rvalues)
@@ -325,7 +361,9 @@ class HODClustering():
 
 
     def xi_all(self, rvalues):
-        """Computes all the relevant correlation functions at once (just combine previous functions together)
+        """
+        Computes all the relevant correlation functions at once
+        (just combine previous functions together)
         """
 
         xi_cs = self.xi_centsat(rvalues)
