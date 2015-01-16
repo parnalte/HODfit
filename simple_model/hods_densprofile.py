@@ -22,6 +22,8 @@ from hods_utils import RHO_CRIT_UNITS, PowerSpectrum
 def Delta_vir(redshift=0, cosmo=ac.WMAP7):
     """ Computes the Delta_vir(z) function, as defined by eq.
         (A12) in C2012.
+
+        This function works OK when input 'redshift' is an array.
     """
     fact1 = 18*np.pi*np.pi
     fact2 = 0.399
@@ -34,7 +36,10 @@ def Delta_vir(redshift=0, cosmo=ac.WMAP7):
 
 def rvir_from_mass(mass = 1e10, redshift=0, cosmo=ac.WMAP7):
     """Obtain the virial radius from the halo mass. From the 
-       inversion of equation (A.11) in C2012
+       inversion of equation (A.11) in C2012.
+
+       This function works OK when EITHER input 'mass' or 'redshift' are
+       1D arrays, but NOT when BOTH of them are arrays.
     """
     
 
@@ -59,6 +64,7 @@ def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min = 10.0, logM_max  =
 
     sigma_func = np.vectorize(lambda x: hm.sigma_mass(mass = x, cosmo=cosmo, powesp_lin_0=powesp_lin_0))
     sigma_array = sigma_func(mass_array)
+
 
     delta_c0 = hm.delta_c_z(redshift=0, cosmo=cosmo)
     mass_star = np.interp(x=delta_c0, xp=mass_array, fp=sigma_array)
