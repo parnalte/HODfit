@@ -15,6 +15,7 @@
 
 import numpy as np
 import astropy.cosmology as ac
+from scipy import integrate
 import hods_halomodel as halomodel
 import hods_hodmodel as hodmodel
 import hods_densprofile as densprofile
@@ -30,48 +31,54 @@ from hods_utils import PowerSpectrum
 #hodmodel.dens_galaxies
 
 
-def integral_centsatterm(rvalue, hod_instance=None, halo_instance=None,
+def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
                          logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                          redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
     """This function computes the integral needed to get the central-satellite term
-       in the HOD clustering model, at a particular value of the scale 'r'.
+       in the HOD clustering model, at a particular value of the scale 'r', or an array of r values.
        Parameters 'redshift, cosmo, powep_lin_0' are needed to define the NFW profile
        at each value of the mass.
        Following eq. (4) in 'model_definition.tex'
+
+       Adapted to work efficiently for input 'r' arrays.
+       The routine will return an array of the same length as 'rvalues'
     """
 
+    #Convert input to array if it is not, and check it is only 1D!
+    rvalues = np.atleast_1d(rvalues)
+    assert rvalues.ndim == 1
+    Nr = len(rvalues)
+    
     #Check the mass array makes sense
     assert logM_min > 0
     assert logM_max > logM_min
     assert logM_step > 0
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-    nbins = nsteps - 1
+    Nm = len(mass_array)
+
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'integral_centsatterm': not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nc_gals = hod_instance.n_centrals(mass=mass_array)
+    ns_gals = hod_instance.n_satellites(mass=mass_array)
+
+    profile_instance = densprofile.HaloProfileNFW(mass=mass_array,
+                                                  redshift=redshift,
+                                                  cosmo=cosmo,
+                                                  powesp_lin_0=powesp_lin_0)
     
-    sum_integral = 0.
+    #Compute the profile at all the scales 'rvalue' for our all our mass values
+    #Output array will have shape (Nr, Nm), which
+    #is the correct one to pass to integration routine
+    #Include the needed normalisation
+    
+    dprofile_config = profile_instance.profile_config(r=rvalues)/mass_array
 
-    for i in range(nbins):
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nc_gals_bin = hod_instance.n_centrals(M_mean)
-        Ns_gals_bin = hod_instance.n_satellites(M_mean)
-
-        profile_instance = densprofile.HaloProfileNFW(mass=M_mean, redshift=redshift,
-                                                      cosmo=cosmo, powesp_lin_0=powesp_lin_0)
-
-        ##Profile actually has to be normalised!!
-        ##(just from dimensional analysis!)
-        dens_profile_bin = profile_instance.profile_config(r=rvalue)/M_mean  
-        ndens_bin = halo_instance.ndens_differential(mass=M_mean)
-        
-        sum_integral = sum_integral + (ndens_bin*Nc_gals_bin*Ns_gals_bin*dens_profile_bin*(nu_2 - nu_1))
-
-    return sum_integral
-
-
+    return integrate.simps(y=(nd_diff_array*nc_gals*ns_gals*dprofile_config),
+                           x=mass_array)
+    
     
 def integral_satsatterm(kvalue, hod_instance=None, halo_instance=None,
                         logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
@@ -202,16 +209,15 @@ class HODClustering():
 
         Nr = len(rvalues)
 
-        int_cs_r = np.empty(Nr,float)
-
-        for i,r in enumerate(rvalues):
-
-            print "Computing xi_centsat for r-value %d of %d" % (i, Nr)
-
-            int_cs_r[i] = integral_centsatterm(rvalue=r, hod_instance=self.hod, halo_instance=self.halomodel,
-                                               logM_min=self.logM_min, logM_max=self.logM_max,
-                                               logM_step=self.logM_step, redshift=self.redshift,
-                                               cosmo=self.cosmo, powesp_lin_0=self.powesp_lin_0)
+        int_cs_r = integral_centsatterm(rvalues=rvalues,
+                                        hod_instance=self.hod,
+                                        halo_instance=self.halomodel,
+                                        logM_min=self.logM_min,
+                                        logM_max=self.logM_max,
+                                        logM_step=self.logM_step,
+                                        redshift=self.redshift,
+                                        cosmo=self.cosmo,
+                                        powesp_lin_0=self.powesp_lin_0)
 
         xir_cs = (2.*int_cs_r/pow(self.gal_dens, 2)) - 1.
 
