@@ -62,12 +62,15 @@ def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min = 10.0, logM_max  =
     
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
 
-    sigma_func = np.vectorize(lambda x: hm.sigma_mass(mass = x, cosmo=cosmo, powesp_lin_0=powesp_lin_0))
-    sigma_array = sigma_func(mass_array)
-
+    #sigma_mass() already works well with input mass arrays
+    sigma_array = hm.sigma_mass(mass=mass_array, cosmo=cosmo, powesp_lin_0=powesp_lin_0)
 
     delta_c0 = hm.delta_c_z(redshift=0, cosmo=cosmo)
-    mass_star = np.interp(x=delta_c0, xp=mass_array, fp=sigma_array)
+
+    #We want to compute the function M(sigma) at the point sigma=delta_c0
+    #First, need to sort the 'x' array, in this case sigma
+    idx_sort = np.argsort(sigma_array)
+    mass_star = np.interp(x=delta_c0, xp=sigma_array[idx_sort], fp=mass_array[idx_sort])
 
     return mass_star
 
