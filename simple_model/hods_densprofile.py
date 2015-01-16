@@ -77,6 +77,9 @@ def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min = 10.0, logM_max  =
 def concentration(mass=1e10, redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None, c_zero=11.0, beta=0.13, logM_min = 10.0, logM_max  =16.0, logM_step = 0.05):
     """Concentration for a halo of a given mass, following eq. (A10)
        in C2012. Need mass array to obtain Mstar via interpolation
+
+       This function works OK when EITHER input 'mass' or 'redshift' are
+       1D arrays, but NOT when BOTH of them are arrays.
     """
 
     mass_star = mstar_interp(cosmo=cosmo, powesp_lin_0=powesp_lin_0, logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
