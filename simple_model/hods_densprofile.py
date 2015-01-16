@@ -114,7 +114,7 @@ class HaloProfileNFW():
                  logM_min = 10.0, logM_max  =16.0, logM_step = 0.05):
         """Parameters defining the NFW halo profile:
 
-           mass: mass of the halo (in M_sol) -- float
+           mass: mass of the halo (in M_sol) -- float or array of floats
            redshift -- float
            cosmo: an astropy.cosmology object defining the cosmology
            powesp_lin_0: a PowerSpectrum object containing the z=0 linear power spectrum corresponding
@@ -122,13 +122,21 @@ class HaloProfileNFW():
            c_zero, beta: parameters for the concentration relation. Probably best to leave at the default values
            logM_min, logM_max, logM_step: parameters of the mass array used in the calculation of M_star
            (needed for the concentration)
+
+           Class adapted to work for an array of masses, not only a single value
         """
 
+        #Convert input mass to array if it is not, and check it is only 1D!
+        mass = np.atleast_1d(mass)
+        assert mass.ndim == 1
+
+        self.Nmass = len(mass)
         self.mass = mass
         self.cosmo = cosmo
         self.powesp_lin_0 = powesp_lin_0
         self.redshift = redshift
 
+        #These parameters will now be also 1D arrays
         self.rvir = rvir_from_mass(mass=mass, redshift=redshift, cosmo=cosmo)
         self.conc = concentration(mass=mass, redshift=redshift, cosmo=cosmo, powesp_lin_0=powesp_lin_0, c_zero=c_zero, beta=beta,
         logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
@@ -138,28 +146,37 @@ class HaloProfileNFW():
 
     def profile_config(self, r):
         """Returns the halo density profile in configuration space,
-           as function of the scale r.
-           From eq. (A8) in C2012
+           as function of the scale r (can be an array).
+           From eq. (A8) in C2012.
+
+           Returns an array of shape (Nr, Nmass), where Nr is the number
+           of scales given as input.
         """
 
-        fact1 = r/self.r_s
+        r = np.atleast_1d(r)
+        assert r.ndim == 1
+
+        fact1 = np.outer(r, 1./self.r_s)
         fact2 = pow(1. + fact1, 2.0)
         rho_h = self.rho_s/(fact1*fact2)
         return rho_h
 
     def profile_fourier(self, k):
         """Returns the normalised halo density profile in Fourier space,
-           as function of the wavenumber k.
+           as function of the wavenumber k (can be an array).
            From eq. (81) in CS02
+
+           Returns an array of shape (Nk, Nmass), where Nk is the number
+           of scales given as input.
         """
 
         #Need to compute the sine and cosine integrals
-        si_ckr, ci_ckr = spc.sici((1.+self.conc)*k*self.r_s)
-        si_kr, ci_kr   = spc.sici(k*self.r_s)
+        si_ckr, ci_ckr = spc.sici(np.outer(k,(1.+self.conc)*self.r_s))
+        si_kr, ci_kr   = spc.sici(np.outer(k, self.r_s))
 
-        fact1 = np.sin(k*self.r_s)*(si_ckr - si_kr)
-        fact2 = np.sin(self.conc*k*self.r_s)/((1. + self.conc)*k*self.r_s)
-        fact3 = np.cos(k*self.r_s)*(ci_ckr - ci_kr)
+        fact1 = np.sin(np.outer(k, self.r_s))*(si_ckr - si_kr)
+        fact2 = np.sin(np.outer(k, self.conc*self.r_s))/(np.outer(k, (1. + self.conc)*self.r_s))
+        fact3 = np.cos(np.outer(k, self.r_s))*(ci_ckr - ci_kr)
 
         uprof = 4.*np.pi*(self.rho_s/self.mass)*pow(self.r_s, 3.)*(fact1 - fact2 + fact3)
 
