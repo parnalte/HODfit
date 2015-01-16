@@ -137,50 +137,57 @@ def integral_satsatterm(kvalues, hod_instance=None, halo_instance=None,
 
 
 
-def integral_2hterm(kvalue, hod_instance=None, halo_instance=None,
+def integral_2hterm(kvalues, hod_instance=None, halo_instance=None,
                     logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                     redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
     """
     This function computes the integral needed to get the 2-halo term
-    in the HOD clustering model, at a particular value of the wavenumber 'k'.
+    in the HOD clustering model, at a particular value of the wavenumber 'k',
+    or an array of k values.
     Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
     NFW profile at each value of the mass.
     Following eq. (7) in 'model_definition.tex'
+
+    Adapted to work efficiently for input 'k'arrays.
+    The routine will return an array of the same length as 'kvalues'
     """
 
+    #Convert input to array if it is not, and check it is only 1D!
+    kvalues = np.atleast_1d(kvalues)
+    assert kvalues.ndim == 1
+    Nk = len(kvalues)
+    
     #Check the mass array makes sense
     assert logM_min > 0
     assert logM_max > logM_min
     assert logM_step > 0
 
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-    nsteps = len(mass_array)
-    nbins = nsteps - 1
+
+
+    if mass_array[0] > hod_instance.mass_min:
+        raise UserWarning("In function 'integral_2hterm': \
+                          not using all the mass range allowed by HOD!")
+
+    nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
+    nt_gals = hod_instance.n_total(mass=mass_array)
+    bias_h_array = halo_instance.bias_fmass(mass=mass_array)
+
+    profile_instance = densprofile.HaloProfileNFW(mass=mass_array,
+                                                  redshift=redshift,
+                                                  cosmo=cosmo,
+                                                  powesp_lin_0=powesp_lin_0)
+
     
-    sum_integral = 0.
+    #Compute the Fourier-space profile at all the scales 'kvalues'
+    #for all our mass values
+    #Output array will have shape (Nk, Nm), which is the correct one to
+    #pass to integration routine
+    dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+    dprof_term = np.absolute(dprofile_fourier)
 
-    for i in range(nbins):
-        M_mean = np.sqrt(mass_array[i]*mass_array[i+1]) #logarithmic mean
-        nu_1 = halo_instance.nu_variable(mass=mass_array[i])
-        nu_2 = halo_instance.nu_variable(mass=mass_array[i+1])
-
-        Nt_gals_bin = hod_instance.n_total(M_mean)
-        bias_bin = halo_instance.bias_fmass(mass=M_mean)
-
-        profile_instance = densprofile.HaloProfileNFW(mass=M_mean,
-                                                      redshift=redshift,
-                                                      cosmo=cosmo,
-                                                      powesp_lin_0=powesp_lin_0)
-
-        dens_profile_bin = np.absolute(profile_instance.profile_fourier(k=kvalue))
-        ndens_bin = halo_instance.ndens_differential(mass=M_mean)
-
-        
-        sum_integral = sum_integral + (ndens_bin*Nt_gals_bin*bias_bin*dens_profile_bin*(nu_2 - nu_1))
-
-    return sum_integral
-
-
+    return integrate.simps(y=(nd_diff_array*nt_gals*bias_h_array*dprof_term),
+                           x=mass_array)
 
 
 class HODClustering():
@@ -300,17 +307,10 @@ class HODClustering():
         Stores the result in self.pk_2h as a PowerSpectrum instance
         """
 
-        kvalues = self.powesp_matter.k
-        
+        kvalues = self.powesp_matter.k       
         Nk = len(kvalues)
 
-        int_2h_k = np.empty(Nk,float)
-
-        for i,k in enumerate(kvalues):
-
-            print "Computing P_2h for k-value %d of %d" % (i, Nk)
-
-            int_2h_k[i] = integral_2hterm(kvalue=k, hod_instance=self.hod,
+        int_2h_k = integral_2hterm(kvalues=kvalues, hod_instance=self.hod,
                                           halo_instance=self.halomodel,
                                           logM_min=self.logM_min,
                                           logM_max=self.logM_max,
@@ -318,10 +318,9 @@ class HODClustering():
                                           redshift=self.redshift,
                                           cosmo=self.cosmo,
                                           powesp_lin_0=self.powesp_lin_0)
-
-
-        pkvals = self.powesp_matter.pk*int_2h_k*int_2h_k/pow(self.gal_dens, 2)
-
+        
+        pkvals = self.powesp_matter.pk*pow(int_2h_k/self.gal_dens, 2)
+        
         self.pk_2h = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
             
         
