@@ -232,6 +232,29 @@ class HODClustering():
                                                logM_step=self.logM_step)
 
 
+    def update_hod(self, hod_instance):
+        """
+        Function to update only the HOD values for the HODClustering object.
+        Avoid the need to re-read other parameters when we only whant to change HOD (most comman case,
+        e.g. for fitting).
+        """
+
+        assert hod_instance is not None
+
+        #Update the HOD value, and density accordingly
+        self.hod = hod_instance
+        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
+                                               halo_instance=self.halomodel,
+                                               logM_min=self.logM_min,
+                                               logM_max=self.logM_max,
+                                               logM_step=self.logM_step)
+
+        #We will need to re-compute all clustering terms, so reset them
+        self.pk_satsat = None
+        self.pk_2h     = None
+
+        
+        
 
     def xi_centsat(self, rvalues):
         """
