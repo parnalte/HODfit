@@ -377,7 +377,70 @@ class HODClustering():
         return xi_tot, xi_2h, xi_1h, xi_cs, xi_ss
 
         
+def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
+                        powesp_matter_file="WMAP7_z0_matterpower.dat",
+                        powesp_linz0_file="WMAP7_linz0_matterpower.dat",
+                        hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
+                        hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
+                        logM_min=8.0, logM_max=16.0, logM_step=0.005):
+    """
+    Construct an HODClustering object defining all the needed parameters.
+    """
 
+    assert redshift >= 0
+
+    if redshift > 10:
+        raise UserWarning("You entered a quite high value of redshift (>10). \
+                          I am not sure these models are valid there, proceed at your \
+                          own risk.")
+    
+    #First, build the Cosmology object
+    #As we work always using distances in Mpc/h, we should be
+    #fine setting H0=100
+    assert OmegaM0 >= 0
+    if (OmegaM0 + OmegaL0) != 1:
+        raise UserWarning("You are using a non-flat cosmology. Are you sure that is \
+                          what you really want?")
+    cosmo_object = ac.LambdaCDM(H0=100, Om0=OmegaM0, Ode0=OmegaL0)
+
+    #Build the needed PowerSpectrum objects
+    try:
+        km, pkm = np.loadtxt(powesp_matter_file, usecols=range(2), unpack=True)
+        pk_matter_object = PowerSpectrum(kvals=km, pkvals=pkm)
+    except:
+        raise ValueError("Error reading matter power spectrum file %s" % powesp_matter_file)
+
+    try:
+        kl, pkl = np.loadtxt(powesp_linz0_file, usecols=range(2), unpack=True)
+        pk_linz0_object = PowerSpectrum(kvals=kl, pkvals=pkl)
+    except:
+        raise ValueError("Error reading z=0 linear matter power spectrum file %s" % powesp_linz0_file)
+
+    #Build the HOD object
+    hod_object = hodmodel.HODModel(hod_type=hod_type, mass_min=hod_mass_min,
+                                   mass_1=hod_mass_1, alpha=hod_alpha,
+                                   siglogM=hod_siglogM, mass_0=hod_mass_0)
+
+
+    #Build the halo model object
+    halo_object = halomodel.HaloModelMW02(cosmo=cosmo_object,
+                                          powesp_lin_0=pk_linz0_object,
+                                          redshift=redshift)
+
+    #And finally, define the clustering object
+    model_clustering_object = \
+        HODClustering(redshift=redshift, cosmo=cosmo_object,
+                      powesp_matter=pk_matter_object, hod_instance=hod_object,
+                      halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
+                      logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
+
+    print "New HODClustering object created, \
+galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
+
+    return model_clustering_object
+    
+    
+        
         
         
 
