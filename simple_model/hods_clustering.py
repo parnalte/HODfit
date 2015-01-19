@@ -21,7 +21,7 @@ from scipy import integrate
 import hods_halomodel as halomodel
 import hods_hodmodel as hodmodel
 import hods_densprofile as densprofile
-from hods_utils import PowerSpectrum
+from hods_utils import PowerSpectrum, xir2wp_pi
 
 
 ################################
@@ -465,7 +465,51 @@ galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
     
         
         
-        
+def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=500, pimin=0.001, pimax=500, npi=500):
+    """
+    Compute the total wp(rp) function given a HODClustering object.
+    If partial_terms=True, return also the 1-halo and 2-halo terms
+    """
 
-        
+    #First, checks on rp and convert to 1D array
+    rpvals = np.atleast_1d(rpvals)
+    assert rpvals.ndim == 1
+    Nrp = len(rpvals)
+
     
+    #Define the array in r we will use to compute the model xi(r)
+    rmin = rpvals.min()
+    rmax = np.sqrt((pimax*2.) + (rpvals.max()**2.))
+    rarray = np.logspace(np.log10(rmin), np.log10(rmax), nr)
+
+    logpimin = np.log10(pimin)
+    logpimax = np.log10(pimax)
+
+    if partial_terms:
+
+        #Obtain the needed xi(r) functions
+        xitot, xi2h, xi1h, xics, xiss = \
+                clustering_object.xi_all(rvalues=rarray)
+
+        #And convert to wp(rp) functions
+        wptot = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xitot,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+        wp2h = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xi2h,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+        wp1h = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xi1h,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+        wpcs = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xics,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+        wpss = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xiss,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+        
+        return wptot, wp2h, wp1h, wpcs, wpss
+
+    else:
+        xitot = clustering_object.xi_total(rvalues=rarray)
+
+        wptot = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xitot,
+                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+
+        return wptot
+
