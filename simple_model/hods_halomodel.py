@@ -87,7 +87,7 @@ def w_tophat_fourier(x):
     """Auxiliar function for spherical top-hat filter in Fourier space
     """
 
-    return (3./pow(x,3))*(np.sin(x) - (x*np.cos(x)))
+    return (3./(x**3))*(np.sin(x) - (x*np.cos(x)))
 
 
 
@@ -96,8 +96,7 @@ def sigma_radius(radius = 8.0, powesp=None):
        computed from the given power spectrum. From eq. (A5) in C2012.
        Length units should be consistent between radius and powesp.
 
-       Adapted to work correctly when 'radius' is an array. Should be improved
-       to do this in a more 'pythonic' (and fast) way
+       Adapted to work correctly when 'radius' is an array. 
     """
 
     #Convert input to array if it is not, and check it is only 1D!
@@ -105,19 +104,14 @@ def sigma_radius(radius = 8.0, powesp=None):
     assert radius.ndim == 1
 
     Nr = len(radius)
-    sigma = np.empty(Nr,float)
+    
+    wvalues = w_tophat_fourier(np.outer(radius, powesp.k))
+    integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
 
-    for i, r in enumerate(radius):
+    integ_result = integrate.simps(x=powesp.k, y=integrand_array, axis=1)
 
-        #We do the integral using Simpson's rule, as implemented
-        #in SciPy's library
+    sigma = np.sqrt(integ_result/(2.*(np.pi**2)))
 
-        wvalues = w_tophat_fourier(r*powesp.k)
-        integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
-        integ_result = integrate.simps(x=powesp.k, y=integrand_array)
-
-        sigma[i] = np.sqrt(integ_result/(2.*(np.pi**2)))
-        
     return sigma
 
 
