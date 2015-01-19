@@ -223,14 +223,20 @@ class HODClustering():
 
         self.pk_satsat = None
         self.pk_2h     = None
+        self.gal_dens = None
 
 
-        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
+
+    def get_gal_dens(self):
+
+        #Calculate only if needed
+        if self.gal_dens is None:
+            self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
                                                halo_instance=self.halomodel,
                                                logM_min=self.logM_min,
                                                logM_max=self.logM_max,
                                                logM_step=self.logM_step)
-
+        return self.gal_dens
 
     def update_hod(self, hod_instance):
         """
@@ -243,16 +249,12 @@ class HODClustering():
 
         #Update the HOD value, and density accordingly
         self.hod = hod_instance
-        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
-                                               halo_instance=self.halomodel,
-                                               logM_min=self.logM_min,
-                                               logM_max=self.logM_max,
-                                               logM_step=self.logM_step)
 
-        #We will need to re-compute all clustering terms, so reset them
+        #We will need to re-compute all clustering terms and galaxy density,
+        #so reset them
         self.pk_satsat = None
         self.pk_2h     = None
-
+        self.gal_Dens  = None
         
         
 
@@ -457,8 +459,9 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
                       logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
 
+    
     print "New HODClustering object created, \
-galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
+galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.get_gal_dens()
 
     return model_clustering_object
     
