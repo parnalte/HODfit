@@ -465,7 +465,7 @@ galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
     
         
         
-def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=500, pimin=0.001, pimax=500, npi=500):
+def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300, pimin=0.001, pimax=500, npi=300):
     """
     Compute the total wp(rp) function given a HODClustering object.
     If partial_terms=True, return also the 1-halo and 2-halo terms
