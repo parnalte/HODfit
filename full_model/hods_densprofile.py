@@ -50,6 +50,24 @@ def rvir_from_mass(mass = 1e10, redshift=0, cosmo=ac.WMAP7):
 
     return result
 
+    
+def massvir_from_radius(radius = 8.0, redshift=0, cosmo=ac.WMAP7):
+    """
+    Obtain the virial mass corresponding to a given radius.
+    From equation (A.11) in C2012.
+
+    This function works OK when EITHER input 'radius' or 'redshift' are
+    1D arrays, but NOT when BOTH of them are arrays.
+    """
+    
+    rho_mean_0 = RHO_CRIT_UNITS*cosmo.Om0
+    Dvir = Delta_vir(redshift=redshift, cosmo=cosmo)
+
+    result = 4.*np.pi*rho_mean_0*Dvir*(radius**3.)/3.
+
+    return result
+    
+    
 
 def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min = 10.0, logM_max  =16.0, logM_step = 0.05):
     """Obtain M_* from the condition sigma(M_*) = delta_c(z=0).

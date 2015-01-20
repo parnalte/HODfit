@@ -35,7 +35,8 @@ from hods_utils import PowerSpectrum, xir2wp_pi
 
 def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
                          logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
-                         redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
+                         redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
+                         use_mvir_limit=True):
     """
     This function computes the integral needed to get the central-satellite
     term in the HOD clustering model, at a particular value of the scale 'r',
@@ -81,7 +82,36 @@ def integral_centsatterm(rvalues, hod_instance=None, halo_instance=None,
     
     dprofile_config = profile_instance.profile_config(r=rvalues)/mass_array
 
-    return integrate.simps(y=(nd_diff_array*nc_gals*ns_gals*dprofile_config),
+    #Implement the virial mass lower limit in the integration, as in
+    #eq. (A17) in C2012
+    #
+    #We will create a (Nr, Nm) array containing 0 or 1 depending on whether
+    #the mass at this point is larger than mvir(r) for r at this point
+    if use_mvir_limit:
+
+        #First, compute an array containing the values of mvir for the
+        #scales r considered
+        mvir_values = densprofile.massvir_from_radius(radius = rvalues,
+                                                      redshift=redshift,
+                                                      cosmo=cosmo)
+
+        #Now, create a (Nm, Nr) array containing the mass_array values
+        mass_array_2d = np.tile(np.atleast_2d(mass_array).T, Nr)
+
+        #And the corresponding (Nr, Nm) array containing the mvir_values
+        mvir_array_2d = np.tile(np.atleast_2d(mvir_values).T, Nm)
+
+        #And compute the selection 2d array (as int)
+        select_mvir_2d = np.array(mass_array_2d.T > mvir_array_2d, int)
+
+    else:
+        #If we do not make this selection, just create the corresponding
+        #array accepting all mass values
+        select_mvir_2d = np.ones((Nr,Nm), int)
+        
+
+    #When doing the integration, take into account the mvir limit
+    return integrate.simps(y=(nd_diff_array*nc_gals*ns_gals*dprofile_config*select_mvir_2d),
                            x=mass_array)
     
     
@@ -199,12 +229,17 @@ class HODClustering():
     The parameter 'scale_dep_bias' determines whether we use the
     scale dependence of halo bias proposed by Tinker et al. (2005) or not.
     [For the 'simple model', use scale_dep_bias=False]
+
+    The parameter 'use_mvir_limit' determines whether we use the
+    lower limit equal to Mvir(r) in the integration of the central-sat
+    term, following eq. (A.17) in C2012.
+    [For the 'simple model', use use_mvir_limit=False]
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min = 10.0, logM_max = 16.0, logM_step = 0.05,
-                 scale_dep_bias=True):
+                 scale_dep_bias=True, use_mvir_limit=True):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -226,6 +261,7 @@ class HODClustering():
         self.logM_max = logM_max
         self.logM_step = logM_step
         self.scale_dep_bias = scale_dep_bias
+        self.use_mvir_limit = use_mvir_limit
 
         self.pk_satsat = None
         self.pk_2h     = None
@@ -278,7 +314,8 @@ class HODClustering():
                                         logM_step=self.logM_step,
                                         redshift=self.redshift,
                                         cosmo=self.cosmo,
-                                        powesp_lin_0=self.powesp_lin_0)
+                                        powesp_lin_0=self.powesp_lin_0,
+                                        use_mvir_limit = self.use_mvir_limit)
 
         xir_cs = (2.*int_cs_r/pow(self.gal_dens, 2)) - 1.
 
@@ -421,7 +458,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
-                        scale_dep_bias=True):
+                        scale_dep_bias=True, use_mvir_limit=True):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -472,7 +509,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
                       logM_min=logM_min, logM_max=logM_max, logM_step=logM_step,
-                      scale_dep_bias=scale_dep_bias)
+                      scale_dep_bias=scale_dep_bias, use_mvir_limit=use_mvir_limit)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens

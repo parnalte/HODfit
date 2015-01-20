@@ -28,6 +28,7 @@ The differences of the ``simple model'' with respect to Coupon's model are:
 The changes that have been implemented in the current version of the model are:
 \begin{itemize}
 \item Introduce halo scale-dependent bias as proposed by Tinker et al. (2005), as in eq. (A13) of Coupon-2012.
+\item Introduce the $M_{vir}(r)$ limit in the calculation of the 1-halo central-satellite term, as in eq. (A17) of Coupon-2012
 \end{itemize}
 
 
@@ -50,6 +51,10 @@ Divided into the central-satellite correlations and satellite-satellite correlat
 
 \subsubsection{Central-satellite term}
 
+\paragraph{In the simple model:}
+
+
+
 This is calculated in direct space as
 \begin{equation}
 1 + \xi_{CS}(r) = \int_0^{+\infty} \mathrm{d}M n(M,z) \frac{\left\langle N_C N_S\right\rangle(M)}{(n_{gal}^2/2)}\rho_h(r|M)
@@ -63,8 +68,6 @@ If we assume a Poisson distribution for the number of galaxies in each halo,
 Note that the radial profile has to be normalised, hence the $M$ in the denominator in the end. 
 This is missing from eq. A17 of Coupon et a. (2002), but even dimensional analysis shows that it should be there (as here, we take $\rho_h(r|M)$ to be the \emph{un-normalised} profile, which integrates to $M$).
 
-
-
 Here
 \begin{itemize}
 \item $n(M,z)$ is the (differential) mass function of haloes
@@ -73,6 +76,20 @@ Here
 \item $N_C(M)$ is the mean number of central galaxies in a halo of mass $M$
 \item $N_S(M)$ is the mean number of satellite galaxies in a halo of mass $M$
 \end{itemize}
+
+\paragraph{In the ``full model'':}
+
+Following eq. (A.17) in C2012, we introduce a lower limit for the integration, to take into account the fact that a halo of mass $M$ can only contribute, in this term, to scales $r < r_{vir}(M)$, where $r_{vir}$ is the virial radius corresponding to that mass.
+Therefore, this term is computed as
+\begin{equation}
+1 + \xi_{CS}(r) = \frac{2}{n_{gal}^2} \int_{M_{vir}(r)}^{+\infty} \mathrm{d}M n(M,z) \left[N_C(M) N_S(M)\right] \frac{\rho_h(r|M)}{M} \, ,
+\end{equation}
+where $M_{vir}(r)$ is the virial mass contained in a halo of radius $r$, which can be computed using eq.~(\ref{eq:mvir}).
+
+
+
+
+
 
 \subsubsection{Satellite-satellite term}
 
@@ -196,6 +213,7 @@ First, we need to define the two constants (for given $(M,z)$) $r_s$, $\rho_s$.
 \begin{itemize}
 \item Define the virial radius $r_{vir}(M,z)$ from
 \begin{equation}
+\label{eq:mvir}
 M = \frac{4 \pi r_{vir}^3}{3}\rho_{M,0} \Delta_{vir}(z) \, ,
 \end{equation}
 \begin{equation}
