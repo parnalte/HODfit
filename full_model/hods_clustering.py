@@ -194,12 +194,17 @@ class HODClustering():
     """
     Class that contains a full model for the galaxy clustering for
     a particular model, defined by
-    Cosmology+redshift+halo model+HOD model+NFW profile
+    Cosmology+redshift+halo model+HOD model+NFW profile.
+
+    The parameter 'scale_dep_bias' determines whether we use the
+    scale dependence of halo bias proposed by Tinker et al. (2005) or not.
+    [For the 'simple model', use scale_dep_bias=False]
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
-                 logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
+                 logM_min = 10.0, logM_max = 16.0, logM_step = 0.05,
+                 scale_dep_bias=True):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -220,6 +225,7 @@ class HODClustering():
         self.logM_min = logM_min
         self.logM_max = logM_max
         self.logM_step = logM_step
+        self.scale_dep_bias = scale_dep_bias
 
         self.pk_satsat = None
         self.pk_2h     = None
@@ -325,7 +331,8 @@ class HODClustering():
     
     def get_pk_2h(self):
         """
-        Computes the power spectrum for the 2-halo term.
+        Computes the power spectrum for the 2-halo term, assuming a halo bias
+        which is constant with scale (as given by the halomodel instance).
         We compute it at the same k-values in which P(k) for matter is given.
         Stores the result in self.pk_2h as a PowerSpectrum instance
         """
@@ -352,12 +359,20 @@ class HODClustering():
         Computes the xi for the 2-halo term at the scales given by 'rvalues'
         First, we check if we have already computed the corresponding
         P(k) and, if that is not the case, we compute it.
+
+        Depending on the 'scale_dep_bias' parameter, we implement the modification
+        for scale-dependent bias, described by eq. (A13) in C2002
         """
 
         if self.pk_2h is None:
             self.get_pk_2h()
 
         xir_2h = self.pk_2h.xir(rvals=rvalues)
+
+        if self.scale_dep_bias:
+            xi_matter = self.powesp_matter.xir(rvals=rvalues)
+            bias_correction = pow(1. + (1.17*xi_matter), 1.49)/pow(1. + (0.69*xi_matter), 2.09)
+            xir_2h = bias_correction*xir_2h
 
         return xir_2h
 
@@ -401,11 +416,12 @@ class HODClustering():
 
         
 def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
-                        powesp_matter_file="WMAP7_z0_matterpower.dat",
-                        powesp_linz0_file="WMAP7_linz0_matterpower.dat",
+                        powesp_matter_file="test/WMAP7_z0_matterpower.dat",
+                        powesp_linz0_file="test/WMAP7_linz0_matterpower.dat",
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
-                        logM_min=8.0, logM_max=16.0, logM_step=0.005):
+                        logM_min=8.0, logM_max=16.0, logM_step=0.005,
+                        scale_dep_bias=True):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -455,7 +471,8 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
         HODClustering(redshift=redshift, cosmo=cosmo_object,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
-                      logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
+                      logM_min=logM_min, logM_max=logM_max, logM_step=logM_step,
+                      scale_dep_bias=scale_dep_bias)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
