@@ -1,0 +1,294 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[latin1]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+
+\title{Description of the HOD model computed by the ``HOD full model'' code}
+\author{Pablo Arnalte-Mur (ICC-Durham/OAUV-Valencia)}
+
+\begin{document}
+\maketitle
+
+In this directory, we plan to progressively implement a complete HOD model for 2-point clustering, based on the Coupon et al. (2002) model, starting on our ``simple model'' code. 
+The differences of the ``simple model'' with respect to Coupon's model are:
+
+\begin{itemize}
+
+\item Do not consider the scale-dependent halo bias (eq. A13)
+\item Do not consider the exclusion effect in the 2-halo term: $M_{lim}(r)$ in eq. (A20),
+  and the related calculations in eqs. (A21-A24)
+\item Do not consider $M_{vir}(r)$ limit in the 1-halo central-satellite term (eq. A17)
+\item Allow use of different HOD models (probably simpler)
+\item Use the halo model (mass function, bias function) from Mo\&White (2002) instead of those from Sheth\&Tormen (1999), Sheth et al. (2001)
+\end{itemize}
+
+
+The changes that have been implemented in the current version of the model are:
+\begin{itemize}
+\item 
+\end{itemize}
+
+
+The detailed description of the model below should correspond to the current implemented version. 
+A detailed description of the ``simple model'' is available in the `simple\_model' folder.
+
+\section{Clustering prediction}
+
+The prediction for the correlation function will be the sum of the 1-halo and 2-halo terms:
+\begin{equation}
+\xi(r) = 1 + \xi_{1h}(r) + \xi_{2h}(r)
+\end{equation}
+
+\subsection{1-halo term}
+
+Divided into the central-satellite correlations and satellite-satellite correlations
+\begin{equation}
+\xi_{1h}(r) = \xi_{CS}(r) + \xi_{SS}(r)
+\end{equation}
+
+\subsubsection{Central-satellite term}
+
+This is calculated in direct space as
+\begin{equation}
+1 + \xi_{CS}(r) = \int_0^{+\infty} \mathrm{d}M n(M,z) \frac{\left\langle N_C N_S\right\rangle(M)}{(n_{gal}^2/2)}\rho_h(r|M)
+\end{equation}
+
+If we assume a Poisson distribution for the number of galaxies in each halo,
+\begin{equation}
+1 + \xi_{CS}(r) = \frac{2}{n_{gal}^2} \int_0^{+\infty} \mathrm{d}M n(M,z) \left[N_C(M) N_S(M)\right] \frac{\rho_h(r|M)}{M}
+\end{equation}
+
+Note that the radial profile has to be normalised, hence the $M$ in the denominator in the end. 
+This is missing from eq. A17 of Coupon et a. (2002), but even dimensional analysis shows that it should be there (as here, we take $\rho_h(r|M)$ to be the \emph{un-normalised} profile, which integrates to $M$).
+
+
+
+Here
+\begin{itemize}
+\item $n(M,z)$ is the (differential) mass function of haloes
+\item $\rho_h(r|M)$ is the radial density profile for a halo of mass $M$
+\item $n_{gal}$ is the number density of galaxies
+\item $N_C(M)$ is the mean number of central galaxies in a halo of mass $M$
+\item $N_S(M)$ is the mean number of satellite galaxies in a halo of mass $M$
+\end{itemize}
+
+\subsubsection{Satellite-satellite term}
+
+This is calculated in Fourier space as
+\begin{equation}
+P_{SS}(k,z) = \int_0^{+\infty} \mathrm{d}M n(M,z) \frac{\left\langle N_S (N_S - 1) \right\rangle(M)}{n_{gal}^2} \left| u_h(k|M)\right|^2
+\end{equation}
+
+If we assume a Poisson distribution for the number of galaxies in each halo,
+\begin{equation}
+P_{SS}(k,z) = \frac{1}{n_{gal}^2}\int_0^{+\infty} \mathrm{d}M n(M,z) N_S^2(M) \left| u_h(k|M)\right|^2
+\end{equation}
+
+Here $u_h(k|M)$ is the (normalised?) Fourier transform of the density profile of a halo of mass $M$
+
+We then obtain $\xi_{SS}(r)$ by a Fourier transform.
+
+\subsection{2-halo term}
+
+This is calculated in Fourier space as
+\begin{equation}
+P_{2h}(k,z) = P_m(k,z)\left[ \frac{1}{n_{gal}} \int_0^{+\infty} \mathrm{d}M n(M,z) N_T(M) b_h(M,z) \left| u_h(k|M)\right| \right]^2
+\end{equation}
+
+Here,
+\begin{itemize}
+\item $P_m(k,z)$ is the power spectrum of matter at the given redshift
+\item $N_T(M) = N_C(M) + N_S(M)$
+\item $b_h(M,z)$ is the bias of haloes of a given mass $M$
+\end{itemize}
+
+We then obtain $\xi_{2h}(r)$ by a Fourier transform.
+
+\subsection{Summary of needed functions}
+
+Therefore, to compute the correlation function in the model as described above, we need the following functions:
+
+\begin{itemize}
+\item From the model of the distribution of dark-matter haloes: $n(M,z)$, $b_h(M,z)$
+\item From the model for the radial density profile: $\rho_h(r|M)$, $u_h(k|M)$ (Fourier pair)
+\item From the HOD model (distribution of galaxies in haloes): $N_C(M)$, $N_S(M)$
+\item From the combination of the halo model and HOD:
+\begin{equation}
+n_{gal} = \int_0^{+\infty} \mathrm{d}M n(M,z) N_T(M)
+\end{equation}
+\end{itemize}
+
+
+
+\section{Model for distribution of DM haloes}
+
+We first need to express the mass of haloes in terms of the new variable $\nu$:
+\begin{equation}
+\nu = \frac{\delta_c(z)}{D(z)\sigma(M)}
+\end{equation}
+where
+\begin{itemize}
+\item $\delta_c$ is the linear critical density, given by
+\begin{equation}
+\delta_c(z) = \frac{3}{20} \left(12\pi\right)^{2/3} \left[ 1 + 0.013 \log_{10} \Omega_M(z)\right]
+\end{equation}
+\item $D(z)$ is the linear growth factor, given by (Mo\&White, 2002):
+\begin{equation}
+D(z) = \frac{g(z)}{g(z=0)(1+z)} \, ,
+\end{equation}
+\begin{equation}
+g(z) = \frac{5}{2}\Omega_M(z) \left[ \Omega_M^{4/7}(z) - \Omega_{\Lambda}(z) + \left(1 + \frac{\Omega_M(z)}{2}\right)\left(1 + \frac{\Omega_{\Lambda}(z)}{70}\right)\right]^{-1}
+\end{equation}
+\item $\sigma(M)$ is the rms of density fluctuations in a top-hat filter of the radius corresponding to mass $M$ as
+\begin{equation}
+R = \left(\frac{3M}{4\pi \rho_{M,0}}\right)^{1/3} \, ,
+\end{equation}
+\begin{equation}
+W_{TH}(x) = \frac{3}{x^3} \left( \sin x - x \cos x \right) \, ,
+\end{equation}
+\begin{equation}
+\sigma^2(M) = \int_0^{+\infty} \frac{\mathrm{d}k}{k} \frac{k^3 P_{lin}(k, z=0)}{2\pi^2} W^2(kR)
+\end{equation}
+\end{itemize}
+
+Here, we have:
+\begin{itemize}
+\item $\rho_{M,0}$ is the present-day matter mean density, i.e. $\rho_{M,0} = \Omega_M \cdot \rho_{crit}$
+\item $\Omega_M(z)$, $\Omega_{\Lambda}(z)$ are the relative matter and DE densities as function of $z$ for the chosen cosmology
+\item $P_{lin}(k, z=0)$ is the linear matter power spectrum at $z=0$ for the chosen cosmology
+\end{itemize}
+
+Once this new variable is defined, we can compute the mass function and bias. Here we take them from Mo\&White (2002), as
+(note there's a typo in eq. (14) in that paper, the mean matter density should be the one at $z=0$)
+\begin{equation}
+n(M,z)\mathrm{d}M = A \left(1 + \frac{1}{\nu'^{2q}}\right) \sqrt{\frac{2}{\pi}} \frac{\rho_{M,0}}{M} \frac{\mathrm{d}\nu'}{\mathrm{d}M} \exp\left(-\frac{\nu'^2}{2}\right)\mathrm{d}M \, ,
+\end{equation}
+and for the bias (eq. 19 in Mo\&White, 2002):
+\begin{equation}
+b_h(M,z) = b_h(\nu) = 1 + \frac{1}{\delta_c(z)}\left[ \nu'^2 + b\nu'^{2(1-c)} - \frac{\nu'^{2c}/\sqrt{a}}{\nu'^{2c} + b(1-c)(1 -c/2)}\right] \, .
+\end{equation}
+
+Here
+\begin{itemize}
+\item $\nu' = \sqrt{a}\nu$
+\item $A = 0.322$
+\item $a = \frac{1}{\sqrt{2}}$
+\item $q = 0.3$
+\item $b = 0.5$
+\item $c = 0.6$
+\end{itemize}
+
+
+\section{Halo density profile}
+
+We use the NFW profile (in practice, truncated at the virial radius, $r_{vir}$).
+
+First, we need to define the two constants (for given $(M,z)$) $r_s$, $\rho_s$.
+\begin{itemize}
+\item Define the virial radius $r_{vir}(M,z)$ from
+\begin{equation}
+M = \frac{4 \pi r_{vir}^3}{3}\rho_{M,0} \Delta_{vir}(z) \, ,
+\end{equation}
+\begin{equation}
+\Delta_{vir}(z) = 18\pi^2 \left[ 1 + 0.399\left( \frac{1}{\Omega_M(z)} - 1 \right)^{0.941} \right]
+\end{equation}
+\item Define the concentration as
+\begin{equation}
+c(M,z) = \frac{c_0}{1+z} \left( \frac{M}{M_*} \right)^{-\beta} \, ,
+\end{equation}
+where
+\begin{itemize}
+\item $c_0 = 11$
+\item $\beta = 0.13$
+\item $M_*$ is defined by $\nu(M=M_*, z=0) = 1$, or equivalently $\sigma(M_*) = \delta_c(z=0)$
+\end{itemize}
+\item Obtain $r_s$ from the relation
+\begin{equation}
+c \equiv \frac{r_{vir}}{r_s} \rightarrow r_s(M,z) = \frac{r_{vir}(M,z)}{c(M,z)}
+\end{equation}
+\item Define the normalisation $\rho_s$ from the integral of the profile, as
+\begin{equation}
+M = \frac{4 \pi \rho_s r_{vir}^3}{c^3} \left[\ln (1+c) - \frac{c}{1+c} \right]
+\end{equation}
+\end{itemize}
+
+
+Once we have these constants, the profile is defined as
+\begin{itemize}
+\item In direct space:
+\begin{equation}
+\rho_h(r|M) = \frac{\rho_s}{\left(\frac{r}{r_s}\right)\left(1 + \frac{r}{r_s}\right)^2}
+\end{equation}
+\item In Fourier space (from eq. 81 in Cooray\&Sheth, 2002):
+\begin{eqnarray}
+u(k|M) = \frac{4 \pi \rho_s r_s^3}{M} & \left\lbrace  \sin(kr_s)\left[\mathrm{Si}\left([1+c]kr_s\right) - \mathrm{Si}(kr_s)\right] - \frac{\sin(ckr_s)}{(1+c)kr_s} \right. \\
+& \left.  + \cos(kr_s)\left[\mathrm{Ci}\left([1+c]kr_s\right) - \mathrm{Ci}(kr_s)\right]\right\rbrace \, ,
+\end{eqnarray}
+where the sine and cosine integrals:
+\begin{equation}
+\mathrm{Ci}(x) \equiv - \int_x^{+\infty} \frac{\cos t}{t} \mathrm{d} t \; , \;
+\mathrm{Si}(x) \equiv \int_0^x \frac{\sin t}{t} \mathrm{d} t
+\end{equation}
+\end{itemize}
+
+
+
+
+\section{HOD model}
+
+Need a model for the mean number of central/satellite galaxies in haloes of a given mass. Above have assumed Poisson statistics, so higher order moments are completely defined.
+Will have two models for this:
+
+\subsection{`Simple model'}
+From Kravtsov et al. (2004), as defined in eq. (9) of Abbas et al. (2010):
+
+\begin{itemize}
+\item Centrals:
+\begin{equation}
+N_C(M) = \left\lbrace \begin{array}{ll}
+1 & \mbox{if } M > M_{min} \\
+0 & \mbox{if } M \leq M_{min}
+\end{array}
+\right.
+\end{equation}
+\item Satellites:
+\begin{equation}
+N_S(M) = N_C(M) \cdot \left( \frac{M}{M_1} \right)^{\alpha}
+\end{equation}
+\end{itemize}
+Therefore here the free parameters are
+\begin{itemize}
+\item $M_{min}$: minimum mass for a halo to contain a galaxy
+\item $M_1$: mass of the haloes that contain, on average, one satellite galaxy
+\item $\alpha$: slope of the power-law relation
+\end{itemize}
+
+\subsection{`Complete model'}
+Model from Zheng et al. (2005), as given by Coupon et al. (2012), Contreras et al. (2013):
+
+\begin{itemize}
+\item Centrals:
+\begin{equation}
+N_C(M) = \frac{1}{2}\left[ 1 + \mathrm{erf}\left(\frac{\log_{10} M - \log_{10}M_{min}}{\sigma_{\log M}} \right) \right]
+\end{equation}
+\item Satellites:
+\begin{equation}
+N_S(M) = \left\lbrace \begin{array}{ll}
+\left(\frac{M - M_0}{M_1} \right)^{\alpha} & \mbox{if } M > M_0 \\
+0 & \mbox{if } M \leq M_0
+\end{array}\right.
+\end{equation}
+\end{itemize}
+
+Now the free parameters are
+\begin{itemize}
+\item $M_{min}$: mass of haloes that have, on average, 0.5 central galaxies
+\item $\sigma_{\log M}$: width of the transition from 0 to 1 central galaxies in $\log M$
+\item $M_0$: minimum mass for a halo to contain a satellite galaxy
+\item $M_1$: as above
+\item $\alpha$: as above
+\end{itemize}
+
+\end{document}

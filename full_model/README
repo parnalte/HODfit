@@ -1,0 +1,14 @@
+Pablo Arnalte-Mur -- 20/01/2015
+
+In this directory, I plan to implement a "complete" HOD model for
+2-point clustering, based on the Coupon et al. (2002) model.
+It will be based on the previous "simple model" (which is working
+in its basic way in version 0.1 of the code). 
+
+I will progressively implement the needed changes to "complicate the model",
+keeping the description of the current implemented model in "model_definition.tex".
+
+When practical, I will try to leave as an option the use of the previous "simple"
+model, as this may be useful for comparisons/speed/...
+
+
