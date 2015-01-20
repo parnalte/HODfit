@@ -5,10 +5,6 @@
    Creation date: 19/02/2014
    Last modified: ---
 
-   TODO:
-        - Change to a free (or my own) implementation of the Hankel transforms to get xi(r).
-          An option is the library in https://pypi.python.org/pypi/hankel/0.1.0
-          Other is to write it myself using functions in scipy.special
 """
 
 
