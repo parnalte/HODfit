@@ -167,6 +167,41 @@ def integral_satsatterm(kvalues, hod_instance=None, halo_instance=None,
 
 
 
+def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
+                      halo_instance=None, logM_min = 10.0, logM_step = 0.05):
+    """
+    Computes the upper mass integration limit and the modified galaxy
+    density (nprime) needed to implement the Zheng (2004) model for the
+    calculation of the 2-halo term. These are given, respectively, by
+    eqs. (B4) and (B6) in Tinker et al. (2005).
+    """
+
+    #Want 'rscales' to be a 1D array
+    rscales = np.atleast_1d(rscales)
+    assert rscales.ndim == 1
+    Nr = len(rscales)
+
+    #First, compute the upper mass limit: virial mass for haloes of radius
+    #Rad = r/2
+    mass_lim = densprofile.massvir_from_radius(radius = rscales/2.,
+                                               redshift=redshift, cosmo=cosmo)
+
+    #And now, compute the corresponding n_prime
+    n_prime_array = np.empty(Nr, float)
+
+    for i, mlim in enumerate(mass_lim):
+        n_prime_array[i] = \
+                hodmodel.dens_galaxies(hod_instance=hod_instance,
+                                       halo_instance=halo_instance,
+                                       logM_min = logM_min,
+                                       logM_step=logM_step,
+                                       logM_max=np.log10(mlim))
+
+    return mass_lim, n_prime_array
+    
+
+
+    
 def integral_2hterm(kvalues, hod_instance=None, halo_instance=None,
                     logM_min = 10.0, logM_max = 16.0, logM_step=0.05,
                     redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
@@ -234,12 +269,23 @@ class HODClustering():
     lower limit equal to Mvir(r) in the integration of the central-sat
     term, following eq. (A.17) in C2012.
     [For the 'simple model', use use_mvir_limit=False]
+
+    The parameter 'halo_exclusion_model' defines which model to use to
+    take into account halo exclusion in the computation of the 2-halo
+    term:
+      - halo_exclusion_model = 0: no halo exclusion used, this corresponds
+          to the 'simple model'
+      - halo_exclusion_model = 1: halo exclusion implemented following
+          Zheng (2004), as described in eqs. (B4-B9) in Tinker et al. (2005)
+      - halo_exclusion_model = 2: [NOT IMPLEMENTED YET] will correspond
+          to Tinker et al. (2005) proposed model, as used by Coupon-2012
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min = 10.0, logM_max = 16.0, logM_step = 0.05,
-                 scale_dep_bias=True, use_mvir_limit=True):
+                 scale_dep_bias=True, use_mvir_limit=True,
+                 halo_exclusion_model=1):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -262,6 +308,7 @@ class HODClustering():
         self.logM_step = logM_step
         self.scale_dep_bias = scale_dep_bias
         self.use_mvir_limit = use_mvir_limit
+        self.halo_exclusion_model = halo_exclusion_model
 
         self.pk_satsat = None
         self.pk_2h     = None
@@ -390,6 +437,37 @@ class HODClustering():
         
         self.pk_2h = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
             
+
+    def get_pk_2h_scale(self, mass_lim, nprime):
+        """
+        Computes the 2-halo power-spectrum for a fixed scale r, taking
+        into account halo exclusion. This is given by eq. (B5) in
+        Tinker-2005.
+        The scale is defined by the mass limit and modified galaxy density,
+        which should have been calculated according to the needed halo
+        exclusion model.
+        """
+
+
+        kvalues = self.powesp_matter.k
+        Nk = len(kvalues)
+
+        #Do the 2D-integral, adding the mass limit as upper integration limit
+        int_2h_k = integral_2hterm(kvalues=kvalues, hod_instance=self.hod,
+                                   halo_instance=self.halomodel,
+                                   logM_min=self.logM_min,
+                                   logM_max=np.log10(mass_lim),
+                                   logM_step=self.logM_step,
+                                   redshift=self.redshift,
+                                   cosmo=self.cosmo,
+                                   powesp_lin_0=self.powesp_lin_0)
+
+        #Now, compute P(k) taking into account the modified galaxy density
+        pkvals = self.powesp_matter.pk*pow(int_2h_k/nprime, 2)
+
+        return PowerSpectrum(kvals=kvalues, pkvals=pkvals)
+
+        
         
     def xi_2h(self, rvalues):
         """
@@ -401,10 +479,39 @@ class HODClustering():
         for scale-dependent bias, described by eq. (A13) in C2002
         """
 
-        if self.pk_2h is None:
-            self.get_pk_2h()
+        #No halo exclusion considered, just use 'the' 2h power spectrum
+        if self.halo_exclusion_model == 0:
+            if self.pk_2h is None:
+                self.get_pk_2h()
 
-        xir_2h = self.pk_2h.xir(rvals=rvalues)
+            xir_2h = self.pk_2h.xir(rvals=rvalues)
+
+
+        #Zheng's halo exclusion model
+        elif self.halo_exclusion_model == 1:
+
+            xir_2h = np.empty(len(rvalues), float)
+            for i, r in enumerate(rvalues):
+                masslim, nprime = \
+                    mlim_nprime_zheng(rscales=r, redshift=self.redshift,
+                                      cosmo=self.cosmo,
+                                      hod_instance=self.hod,
+                                      halo_instance=self.halomodel,
+                                      logM_min=self.logM_min,
+                                      logM_step=self.logM_step)
+
+                if nprime == 0: #Typically, if mass_lim < hod.mass_min
+                    xir_2h[i] = 0
+                else:
+                    pk_scale = self.get_pk_2h_scale(masslim, nprime)
+                    xiprime = pk_scale.xir(r)
+
+                    #Need to re-escale, as in eq. (B9) of Tinker-2005
+                    xir_2h[i] = (pow(nprime/self.gal_dens, 2)*(1. + xiprime)) - 1.
+
+        else:
+            raise Exception("This halo exclusion model is not implemented (yet)!")
+            
 
         if self.scale_dep_bias:
             xi_matter = self.powesp_matter.xir(rvals=rvalues)
@@ -458,7 +565,8 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
-                        scale_dep_bias=True, use_mvir_limit=True):
+                        scale_dep_bias=True, use_mvir_limit=True,
+                        halo_exclusion_model=1):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -508,8 +616,10 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
         HODClustering(redshift=redshift, cosmo=cosmo_object,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
-                      logM_min=logM_min, logM_max=logM_max, logM_step=logM_step,
-                      scale_dep_bias=scale_dep_bias, use_mvir_limit=use_mvir_limit)
+                      logM_min=logM_min, logM_max=logM_max,
+                      logM_step=logM_step, scale_dep_bias=scale_dep_bias,
+                      use_mvir_limit=use_mvir_limit,
+                      halo_exclusion_model=halo_exclusion_model)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
