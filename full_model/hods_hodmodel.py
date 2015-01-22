@@ -50,6 +50,14 @@ class HODModel():
             self.siglogM = siglogM
             self.mass_0 = mass_0
 
+        #Mass-dependent arrays we will eventually use
+        #Will need to be initialized elsewhere
+        self.mass_array = None
+        self.Nm = 0
+        self.n_cent_array = None
+        self.n_sat_array = None
+        self.n_tot_array = None
+            
     def n_centrals(self, mass=1e12):
         """Returns mean number of central galaxies in a halo of mass 'mass',
            according to this HOD model
@@ -100,6 +108,33 @@ class HODModel():
         nt = self.n_centrals(mass) + self.n_satellites(mass)
         return nt
 
+
+    def set_mass_arrays(self, logM_min=10., logM_max=16., logM_step=0.05):
+        """
+        Compute and store the relevant mass-dependent quantities for a given
+        mass array, so we can re-use without the need to re-calculating them
+        each time
+        """
+
+        #Check the mass array makes sense
+        assert logM_min > 0
+        assert logM_max > logM_min
+        assert logM_step > 0
+
+        self.mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+        self.Nm = len(self.mass_array)
+
+        if self.mass_array[0] > self.mass_min:
+            raise Exception("Not using all the mass range allowed by HOD!")
+        
+        self.n_cent_array = self.n_centrals(mass=self.mass_array)
+        self.n_sat_array = self.n_satellites(mass=self.mass_array)
+        self.n_tot_array = self.n_total(mass=self.mass_array)
+
+        
+
+
+        
         
 ####################
 ##DERIVED QUANTITIES

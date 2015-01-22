@@ -179,7 +179,15 @@ class HaloModelMW02():
         self.par_c   = par_c
         self.par_q   = par_q
 
-
+        #Mass-dependent arrays we will eventually use
+        #Will need to be initialized elsewhere
+        self.mass_array = None
+        self.Nm = 0
+        self.nuvar_array = None
+        self.bias_array  = None
+        self.ndens_diff_m_array = None
+        
+        
 
     def nu_variable(self, mass = 1e12):
         """Make the conversion from halo mass to the 'nu' variable,
@@ -359,6 +367,24 @@ class HaloModelMW02():
         return ndens_integral, mean_bias, mean_mass
 
 
+    def set_mass_arrays(self, logM_min=10, logM_max=16, logM_step=0.05, delta_m_rel=1e-4):
+        """
+        Compute and store the relevant mass-dependent quantities for a given
+        mass array, so we can re-use without the need to re-calculating them
+        each time
+        """
+
+        #Check the mass array makes sense
+        assert logM_min > 0
+        assert logM_max > logM_min
+        assert logM_step > 0
+
+        self.mass_array = 10**np.arange(logM_min, logM_max, logM_step)
+        self.Nm = len(self.mass_array)
+
+        self.nuvar_array = self.nu_variable(mass=self.mass_array)
+        self.bias_array = self.bias_nu(nuval=self.nuvar_array)
+        self.ndens_diff_m_array = self.ndens_diff_m(mass=self.mass_array, delta_m_rel=delta_m_rel)
         
 
 
