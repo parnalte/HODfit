@@ -169,11 +169,14 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
     return integrate.simps(y=(nt_gals*nd_diff_array), x=mass_array)
 
 
-def dens_galaxies_arrays(hod_instance=None, halo_instance=None):
+def dens_galaxies_arrays(hod_instance=None, halo_instance=None, mass_limit=None):
     """
     Computes the mean galaxy number density, in the same way as the previous
     function, but using the predefined mass-dependent quantities in the hod
     and halomodel objects.
+
+    Added the option of an additional upper mass limit, as this will be
+    useful for the calculation of the 2-halo term including halo exclusion.
     """
 
     #First, need to check that the array quantities are properly set and
@@ -182,10 +185,17 @@ def dens_galaxies_arrays(hod_instance=None, halo_instance=None):
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
+    #Implement the upper mass limit if needed
+    if mass_limit is not None:
+        mlim_selection = np.array(hod_instance.mass_array <= mass_limit, int)
+    else:
+        mlim_selection = np.ones(hod_instance.Nm, int)
+    
     #If all is good, then do the calculation directly
-    dens_gals = integrate.simps( \
-                y=(hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
-                                 x=hod_instance.mass_array)
+    dens_gals = integrate.simps(
+        y=(hod_instance.n_tot_array*halo_instance.ndens_diff_m_array*\
+           mlim_selection),
+        x=hod_instance.mass_array)
     return dens_gals
     
     
