@@ -491,14 +491,15 @@ class HODClustering():
         elif self.halo_exclusion_model == 1:
 
             xir_2h = np.empty(len(rvalues), float)
-            for i, r in enumerate(rvalues):
-                masslim, nprime = \
-                    mlim_nprime_zheng(rscales=r, redshift=self.redshift,
-                                      cosmo=self.cosmo,
-                                      hod_instance=self.hod,
-                                      halo_instance=self.halomodel,
-                                      logM_min=self.logM_min,
-                                      logM_step=self.logM_step)
+            mlimvals, nprimevals = \
+                mlim_nprime_zheng(rscales=rvalues, redshift=self.redshift,
+                                  cosmo=self.cosmo,
+                                  hod_instance=self.hod,
+                                  halo_instance=self.halomodel,
+                                  logM_min=self.logM_min,
+                                  logM_step=self.logM_step)
+            
+            for i, (r, masslim, nprime) in enumerate(zip(rvalues, mlimvals, nprimevals)):
 
                 if nprime == 0: #Typically, if mass_lim < hod.mass_min
                     xir_2h[i] = 0
