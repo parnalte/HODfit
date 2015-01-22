@@ -108,7 +108,8 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
 
 
 def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
-                              redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
+                              redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
+                              prof_fourier=None):
     """
     This function computes the integral needed to get the satellite-satellite
     term in the HOD clustering model, at a particular value of the
@@ -122,6 +123,9 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
 
     In this version of the function, we work with the mass-dependent
     pre-computed quantities in the hod and halo instances.
+
+    Modified to have the option of providing pre-computed Fourier-space
+    density profiles.
     """
 
     #Check that the array quantities are properly set and
@@ -131,16 +135,23 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
 
-    profile_instance = densprofile.HaloProfileNFW(mass=hod_instance.mass_array,
-                                                  redshift=redshift,
-                                                  cosmo=cosmo,
-                                                  powesp_lin_0=powesp_lin_0)
+    #No profile provided, have to compute it here
+    if prof_fourier is None:
+        profile_instance = densprofile.HaloProfileNFW(
+            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
+            powesp_lin_0=powesp_lin_0)
 
-    #Compute the Fourier-space profile at all the scales 'kvalues'
-    #for all our mass values
-    #Output array will have shape (Nk, Nm), which is the correct one to
-    #pass to integration routine
-    dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+        #Compute the Fourier-space profile at all the scales 'kvalues'
+        #for all our mass values
+        #Output array will have shape (Nk, Nm), which is the correct one to
+        #pass to integration routine
+        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+
+    #If given, have to check that it has appropriate dimensions
+    else:
+        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
+        dprofile_fourier = prof_fourier
+
     dprof_term = pow(np.absolute(dprofile_fourier), 2)
 
     return integrate.simps(
@@ -182,7 +193,7 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
 def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
                           redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
-                          mass_limit=None):
+                          prof_fourier=None, mass_limit=None):
     """
     This function computes the integral needed to get the 2-halo term
     in the HOD clustering model, at a particular value of the wavenumber 'k',
@@ -198,6 +209,9 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     pre-computed quantities in the hod and halo instances.
     We add the option of fixing a more restrictive upper mass limit, which is
     needed to implement halo exclusion.
+
+    Modified to have the option of providing pre-computed Fourier-space
+    density profiles.
     """
 
     #Check that the array quantities are properly set and
@@ -206,17 +220,24 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-    
-    profile_instance = densprofile.HaloProfileNFW(mass=hod_instance.mass_array,
-                                                  redshift=redshift,
-                                                  cosmo=cosmo,
-                                                  powesp_lin_0=powesp_lin_0)
 
-    #Compute the Fourier-space profile at all the scales 'kvalues'
-    #for all our mass values
-    #Output array will have shape (Nk, Nm), which is the correct one to
-    #pass to integration routine
-    dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+    #No profile provided, have to compute it here
+    if prof_fourier is None:
+        profile_instance = densprofile.HaloProfileNFW(
+            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
+            powesp_lin_0=powesp_lin_0)
+
+        #Compute the Fourier-space profile at all the scales 'kvalues'
+        #for all our mass values
+        #Output array will have shape (Nk, Nm), which is the correct one to
+        #pass to integration routine
+        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+
+    #If given, have to check that it has appropriate dimensions
+    else:
+        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
+        dprofile_fourier = prof_fourier
+        
     dprof_term = np.absolute(dprofile_fourier)
 
     #Implement the upper mass limit if needed
@@ -299,9 +320,19 @@ class HODClustering():
                                        logM_max=self.logM_max,
                                        logM_step=self.logM_step)
 
+        #Compute galaxy density for this model
         self.gal_dens = hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
                                                halo_instance=self.halomodel)
 
+        #Create the profile instance, and pre-compute the Fourier-space
+        #profile. Will compute it at the k values given by powesp_matter
+        self.densprofile = densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                                  redshift=self.redshift,
+                                                  cosmo=self.cosmo,
+                                                  powesp_lin_0=self.powesp_lin_0)
+        self.kvals = self.powesp_matter.k
+        self.dprofile_fourier = self.densprofile.profile_fourier(k=self.kvals)
+        
 
     def update_hod(self, hod_instance):
         """
@@ -360,7 +391,8 @@ class HODClustering():
                                              halo_instance=self.halomodel,
                                              redshift=self.redshift,
                                              cosmo=self.cosmo,
-                                             powesp_lin_0=self.powesp_lin_0)
+                                             powesp_lin_0=self.powesp_lin_0,
+                                             prof_fourier=self.dprofile_fourier)
                 
         pkvals = int_ss_k/pow(self.gal_dens, 2.)
 
@@ -402,7 +434,8 @@ class HODClustering():
                                          halo_instance=self.halomodel,
                                          redshift=self.redshift,
                                          cosmo=self.cosmo,
-                                         powesp_lin_0=self.powesp_lin_0)
+                                         powesp_lin_0=self.powesp_lin_0,
+                                         prof_fourier=self.dprofile_fourier)
         
         pkvals = self.powesp_matter.pk*pow(int_2h_k/self.gal_dens, 2)
         
@@ -428,7 +461,8 @@ class HODClustering():
                                          redshift=self.redshift,
                                          cosmo=self.cosmo,
                                          powesp_lin_0=self.powesp_lin_0,
-                                         mass_limit=mass_lim)
+                                         mass_limit=mass_lim,
+                                         prof_fourier=self.dprofile_fourier)
 
         #Now, compute P(k) taking into account the modified galaxy density
         pkvals = self.powesp_matter.pk*pow(int_2h_k/nprime, 2)
