@@ -167,6 +167,26 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
     nt_gals = hod_instance.n_total(mass=mass_array)
 
     return integrate.simps(y=(nt_gals*nd_diff_array), x=mass_array)
+
+
+def dens_galaxies_arrays(hod_instance=None, halo_instance=None):
+    """
+    Computes the mean galaxy number density, in the same way as the previous
+    function, but using the predefined mass-dependent quantities in the hod
+    and halomodel objects.
+    """
+
+    #First, need to check that the array quantities are properly set and
+    #match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+
+    #If all is good, then do the calculation directly
+    dens_gals = integrate.simps( \
+                y=(hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
+                                 x=hod_instance.mass_array)
+    return dens_gals
     
     
 def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
@@ -195,6 +215,31 @@ def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
     dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
 
     return integrate.simps(y=(bias_haloes_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+
+
+def bias_gal_mean_array(hod_instance=None, halo_instance=None):
+    """
+    Computes the mean galaxy bias, in the same way as the previous
+    function, but using the predefined mass-dependent quantities in the hod
+    and halomodel objects.
+    """
+
+    #First, need to check that the array quantities are properly set and
+    #match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+
+    #If all is good, do the calculation directly
+    bias_integ = integrate.simps(\
+    y = (halo_instance.bias_array*hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
+                                x=hod_instance.mass_array)
+
+    gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
+    
+    return bias_integ/gal_dens
+
+
     
 
 def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
@@ -224,6 +269,29 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, l
     return integrate.simps(y=(mass_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
 
 
+
+def mean_halo_mass_hod_array(hod_instance=None, halo_instance=None):
+    """
+    Computes the HOD-averaged mean halo mass, in the same way as the previous
+    function, but using the predefined mass-dependent quantities in the hod
+    and halomodel objects.
+    """
+
+    #First, need to check that the array quantities are properly set and
+    #match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+
+    #If all is good, do the calculation directly
+    mass_integ = integrate.simps(
+        y=(hod_instance.mass_array*hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
+        x=hod_instance.mass_array)
+    gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
+
+    return mass_integ/gal_dens
+
+    
 def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
     """Computes the fraction of central galaxies per halo according to the combination
        of a halo distribution model and an HOD model.
@@ -251,6 +319,30 @@ def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, lo
 
     return integrate.simps(y=(nc_gals*nd_diff_array), x=mass_array)/dens_gal_tot
 
+
+def fraction_centrals_array(hod_instance=None, halo_instance=None):
+    """
+    Computes the fraction of central galaxies per halo, in the same way as
+    the previous function, but using the predefined mass-dependent quantities
+    in the hod and halomodel objects.
+    """
+
+    #First, need to check that the array quantities are properly set and
+    #match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+
+    #If all is good, do the calculation directly
+    centrals_dens = integrate.simps(
+        y=(hod_instance.n_cent_array*halo_instance.ndens_diff_m_array),
+        x=hod_instance.mass_array)
+    gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
+
+    return centrals_dens/gal_dens
+
+
+
     
 def fraction_satellites(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
     """Computes the fraction of satellites galaxies per halo according to the combination
@@ -268,4 +360,13 @@ def fraction_satellites(hod_instance=None, halo_instance=None, logM_min = 10.0, 
 
 
     
-    
+def fraction_satellites_array(hod_instance=None, halo_instance=None):
+    """
+    Computes the fraction of satellites galaxies per halo, in the same way as
+    the previous function, but using the predefined mass-dependent quantities
+    in the hod and halomodel objects.
+    """
+
+    f_cent = fraction_centrals_array(hod_instance, halo_instance)
+
+    return 1.0 - f_cent
