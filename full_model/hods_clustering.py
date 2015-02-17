@@ -97,7 +97,7 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
     else:
         #If we do not make this selection, just create the corresponding
         #array accepting all mass values
-        select_mvir_2d = np.ones((Nr,Nm), int)
+        select_mvir_2d = np.ones((Nr,hod_instance.Nm), int)
 
     #When doing the integration, take into account the mvir limit
     return integrate.simps(
