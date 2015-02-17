@@ -4,6 +4,7 @@
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage[left=2cm,right=2cm,top=2cm,bottom=2cm]{geometry}
+\usepackage[normalem]{ulem} % For strikethrough text
 
 \title{Description of the HOD model computed by the ``HOD full model'' code}
 \author{Pablo Arnalte-Mur (ICC-Durham/OAUV-Valencia)}
@@ -21,7 +22,8 @@ The differences of the ``simple model'' with respect to Coupon's model are:
   and the related calculations in eqs. (A21-A24)
 \item Do not consider $M_{vir}(r)$ limit in the 1-halo central-satellite term (eq. A17)
 \item Allow use of different HOD models (probably simpler)
-\item Use the halo model (mass function, bias function) from Mo\&White (2002) instead of those from Sheth\&Tormen (1999), Sheth et al. (2001)
+\item \sout{Use the halo model (mass function, bias function) from Mo\&White (2002) instead of those from Sheth\&Tormen (1999), Sheth et al. (2001)}
+\item The used halo mass function is the same as in Coupon et al. (2012) [Defined in Mo\&White (2002), from Sheth et al. (1999, 2001)]. The halo bias function has the same functional form, but in the ``simple model'' we use the original parameters, as in Mo\&White (2002), while Coupon et al. (2012) use the revised parameters defined in App. A of Tinker et al. (2005)
 \end{itemize}
 
 
@@ -30,6 +32,7 @@ The changes that have been implemented in the current version of the model are:
 \item Introduce halo scale-dependent bias as proposed by Tinker et al. (2005), as in eq. (A13) of Coupon-2012.
 \item Introduce the $M_{vir}(r)$ limit in the calculation of the 1-halo central-satellite term, as in eq. (A17) of Coupon-2012
 \item Introduce the exclusion effect in the 2-halo term, using the simplified approach of Zheng et al. (2004), as described in eqs. (B4-9) of Tinker et al. (2005)
+\item Introduce the revised parameters for the halo bias function following Tinker et al. (2005), as in eq. (A14) of Coupon-2012
 \end{itemize}
 
 
@@ -228,8 +231,21 @@ Here
 \item $A = 0.322$
 \item $a = \frac{1}{\sqrt{2}}$
 \item $q = 0.3$
-\item $b = 0.5$
-\item $c = 0.6$
+\end{itemize}
+
+The parameters $b, c$ depend on the exact model used:
+
+\begin{itemize}
+\item For the \textbf{simple model}, we use the values in Mo\&White (2002):
+  \begin{itemize}
+  \item $b = 0.5$
+  \item $c = 0.6$
+  \end{itemize}
+\item in the \textbf{full model} (now default option),  we use the values revised in Appendix A of Tinker et al. (2005):
+  \begin{itemize}
+  \item $b = 0.35$
+  \item $c = 0.8$
+  \end{itemize}
 \end{itemize}
 
 
