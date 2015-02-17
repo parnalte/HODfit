@@ -145,7 +145,7 @@ def xir2wp_xifunc_pi(rpvals, xirfunc, logpimin=-4, logpimax=3, npi=500):
         xi2darr_full = np.concatenate((xi2d_arr[::-1], xi2d_arr))
 
         #Do the actual integration
-        wp_out[i] = integrate.simps(y=xi2darr_full, x=piarr_full)
+        wp_out[i] = integrate.simps(y=xi2darr_full, x=piarr_full, even='first')
         
     return wp_out
 

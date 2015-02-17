@@ -108,7 +108,7 @@ def sigma_radius(radius = 8.0, powesp=None):
     wvalues = w_tophat_fourier(np.outer(radius, powesp.k))
     integrand_array = (powesp.k**2)*powesp.pk*(wvalues**2)
 
-    integ_result = integrate.simps(x=powesp.k, y=integrand_array, axis=1)
+    integ_result = integrate.simps(x=powesp.k, y=integrand_array, axis=1, even='first')
 
     sigma = np.sqrt(integ_result/(2.*(np.pi**2)))
 
@@ -292,7 +292,7 @@ class HaloModelMW02():
 
         nd_diff_array = self.ndens_diff_m(mass=mass_array)
 
-        return integrate.simps(y=nd_diff_array, x=mass_array)
+        return integrate.simps(y=nd_diff_array, x=mass_array, even='first')
         
 
     def mean_bias(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
@@ -313,7 +313,8 @@ class HaloModelMW02():
         nd_diff_array = self.ndens_diff_m(mass=mass_array)
         bias_array = self.bias_fmass(mass=mass_array)
 
-        return integrate.simps(y=(bias_array*nd_diff_array), x=mass_array)/self.ndens_integral(logM_min, logM_max, logM_step)
+        return integrate.simps(y=(bias_array*nd_diff_array),
+                               x=mass_array, even='first')/self.ndens_integral(logM_min, logM_max, logM_step)
 
 
     def mean_mass(self, logM_min = 10.0, logM_max = 16.0, logM_step = 0.05):
@@ -333,7 +334,8 @@ class HaloModelMW02():
 
         nd_diff_array = self.ndens_diff_m(mass=mass_array)
 
-        return integrate.simps(y=(mass_array*nd_diff_array), x=mass_array)/self.ndens_integral(logM_min, logM_max, logM_step)
+        return integrate.simps(y=(mass_array*nd_diff_array),
+                               x=mass_array, even='first')/self.ndens_integral(logM_min, logM_max, logM_step)
 
 
         
@@ -360,9 +362,9 @@ class HaloModelMW02():
         nd_diff_array = self.ndens_diff_m(mass=mass_array)
         bias_array = self.bias_fmass(mass=mass_array)
 
-        ndens_integral = integrate.simps(y=nd_diff_array, x=mass_array)
-        mean_bias = integrate.simps(y=(bias_array*nd_diff_array), x=mass_array)/ndens_integral
-        mean_mass = integrate.simps(y=(mass_array*nd_diff_array), x=mass_array)/ndens_integral
+        ndens_integral = integrate.simps(y=nd_diff_array, x=mass_array, even='first')
+        mean_bias = integrate.simps(y=(bias_array*nd_diff_array), x=mass_array, even='first')/ndens_integral
+        mean_mass = integrate.simps(y=(mass_array*nd_diff_array), x=mass_array, even='first')/ndens_integral
 
         return ndens_integral, mean_bias, mean_mass
 

@@ -166,7 +166,7 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
     nd_diff_array = halo_instance.ndens_diff_m(mass=mass_array)
     nt_gals = hod_instance.n_total(mass=mass_array)
 
-    return integrate.simps(y=(nt_gals*nd_diff_array), x=mass_array)
+    return integrate.simps(y=(nt_gals*nd_diff_array), x=mass_array, even='first')
 
 
 def dens_galaxies_arrays(hod_instance=None, halo_instance=None, mass_limit=None):
@@ -195,7 +195,7 @@ def dens_galaxies_arrays(hod_instance=None, halo_instance=None, mass_limit=None)
     dens_gals = integrate.simps(
         y=(hod_instance.n_tot_array*halo_instance.ndens_diff_m_array*\
            mlim_selection),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
     return dens_gals
     
     
@@ -224,7 +224,7 @@ def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min = 10.0, logM_m
 
     dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
 
-    return integrate.simps(y=(bias_haloes_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+    return integrate.simps(y=(bias_haloes_array*nt_gals*nd_diff_array), x=mass_array, even='first')/dens_gal_tot
 
 
 def bias_gal_mean_array(hod_instance=None, halo_instance=None):
@@ -243,7 +243,7 @@ def bias_gal_mean_array(hod_instance=None, halo_instance=None):
     #If all is good, do the calculation directly
     bias_integ = integrate.simps(\
     y = (halo_instance.bias_array*hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
-                                x=hod_instance.mass_array)
+                                x=hod_instance.mass_array, even='first')
 
     gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
     
@@ -276,7 +276,7 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min = 10.0, l
 
     dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
 
-    return integrate.simps(y=(mass_array*nt_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+    return integrate.simps(y=(mass_array*nt_gals*nd_diff_array), x=mass_array, even='first')/dens_gal_tot
 
 
 
@@ -296,7 +296,7 @@ def mean_halo_mass_hod_array(hod_instance=None, halo_instance=None):
     #If all is good, do the calculation directly
     mass_integ = integrate.simps(
         y=(hod_instance.mass_array*hod_instance.n_tot_array*halo_instance.ndens_diff_m_array),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
     gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
 
     return mass_integ/gal_dens
@@ -327,7 +327,7 @@ def fraction_centrals(hod_instance=None, halo_instance=None, logM_min = 10.0, lo
     dens_gal_tot = dens_galaxies(hod_instance, halo_instance, logM_min, logM_max, logM_step)
 
 
-    return integrate.simps(y=(nc_gals*nd_diff_array), x=mass_array)/dens_gal_tot
+    return integrate.simps(y=(nc_gals*nd_diff_array), x=mass_array, even='first')/dens_gal_tot
 
 
 def fraction_centrals_array(hod_instance=None, halo_instance=None):
@@ -346,7 +346,7 @@ def fraction_centrals_array(hod_instance=None, halo_instance=None):
     #If all is good, do the calculation directly
     centrals_dens = integrate.simps(
         y=(hod_instance.n_cent_array*halo_instance.ndens_diff_m_array),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
     gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
 
     return centrals_dens/gal_dens

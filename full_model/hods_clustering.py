@@ -104,7 +104,7 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
         y=(halo_instance.ndens_diff_m_array*\
            hod_instance.n_cent_array*hod_instance.n_sat_array*\
            dprofile_config*select_mvir_2d),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
 
 
 def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
@@ -157,7 +157,7 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
     return integrate.simps(
         y=(halo_instance.ndens_diff_m_array*(hod_instance.n_sat_array**2)\
            *dprof_term),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
     
     
 def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
@@ -249,7 +249,7 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     return integrate.simps(
         y=(halo_instance.ndens_diff_m_array*hod_instance.n_tot_array*\
            halo_instance.bias_array*dprof_term*mlim_selection),
-        x=hod_instance.mass_array)
+        x=hod_instance.mass_array, even='first')
     
     
 
