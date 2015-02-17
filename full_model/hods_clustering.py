@@ -667,7 +667,7 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
     
     #Define the array in r we will use to compute the model xi(r)
     rmin = rpvals.min()
-    rmax = np.sqrt((pimax*2.) + (rpvals.max()**2.))
+    rmax = np.sqrt((pimax**2.) + (rpvals.max()**2.))
     rarray = np.logspace(np.log10(rmin), np.log10(rmax), nr)
 
     logpimin = np.log10(pimin)
