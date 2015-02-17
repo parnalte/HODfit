@@ -29,6 +29,7 @@ The changes that have been implemented in the current version of the model are:
 \begin{itemize}
 \item Introduce halo scale-dependent bias as proposed by Tinker et al. (2005), as in eq. (A13) of Coupon-2012.
 \item Introduce the $M_{vir}(r)$ limit in the calculation of the 1-halo central-satellite term, as in eq. (A17) of Coupon-2012
+\item Introduce the exclusion effect in the 2-halo term, using the simplified approach of Zheng et al. (2004), as described in eqs. (B4-9) of Tinker et al. (2005)
 \end{itemize}
 
 
@@ -111,6 +112,7 @@ We then obtain $\xi_{SS}(r)$ by a Fourier transform.
 
 This is calculated in Fourier space as
 \begin{equation}
+\label{eq:P2h}
 P_{2h}(k,z) = P_m(k,z)\left[ \frac{1}{n_{gal}} \int_0^{+\infty} \mathrm{d}M n(M,z) N_T(M) b_h(M,z) \left| u_h(k|M)\right| \right]^2 \, ,
 \end{equation}
 where this $P_{2h}(k,z)$ corresponds to the assumption that the halo bias $b_h(M,z)$ does not depend on scale.
@@ -129,6 +131,32 @@ We implement the scale bias correction given by eq. (A13) of Coupon-2012, and fi
   \xi_{2h}(r) = \frac{\left[ 1 + 1.17 \xi_m(r,z)\right]^{1.49}}{\left[ 1 + 0.69 \xi_m(r,z)\right]^{2.09}} \xi_{2h-cbias}(r) \, , 
 \end{equation}
 where $\xi_m(r,z)$ is the correlation function of matter at the given redshift, i.e., the Fourier transform of $P_m(k,z)$.
+
+
+\paragraph{With Zheng et al. (2004) halo exclusion model:}
+
+(This is selected with \texttt{halo\_exclusion\_model=1}, now the default)
+
+For each value of $r$, we compute the corresponding upper mass limit $M_{\rm lim}$ as the virial mass corresponding to $r_{\rm vir} = r/2$ in eq.~(\ref{eq:mvir}). And get the `restricted number density' $n_{gal}'$ as
+\begin{equation}
+  \label{eq:2}
+  n_{gal}' = \int_0^{M_{\rm lim}} \mathrm{d}M n(M,z) N_T(M) \, .
+\end{equation}
+
+Then, compute the Fourier space 2-halo term modifiying eq.\ref{eq:P2h} as
+\begin{equation}
+  \label{eq:3}
+  P_{2h}(k,z, r) = P_m(k,z)\left[ \frac{1}{n_{gal}'} \int_0^{M_{\rm lim}} \mathrm{d}M n(M,z) N_T(M) b_h(M,z) \left| u_h(k|M)\right| \right]^2 \, ,
+\end{equation}
+and the `restricted' 2-halo correlation function $\xi_{2h}'(r)$ is obtained by Fourier transform. We then need to `re-normalize' to obtain the final, ``constant bias'' correlation function as
+\begin{equation}
+  \label{eq:4}
+  1 + \xi_{2h-cbias}(r) = \left( \frac{n_{gal}'}{n_{gal}} \right)^2 \left[1 + \xi_{2h}'(r)\right] \, .
+\end{equation}
+
+We obtain the final 2-halo correlation function, including scale-dependent bias, using eq.~(\ref{eq:1}).
+
+
 
 \subsection{Summary of needed functions}
 
