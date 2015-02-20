@@ -86,8 +86,8 @@ def pk2xir_hankel(rvalues, pkfunction, hankelN=6000, hankelh=0.0005):
 
     #Define the needed Hankel Transform instance, avoid printing
     #lots of stuff coming from the definition
-    with nostdout():
-        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
+#    with nostdout():
+    sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
     
     for i,r in enumerate(rvalues):
         func_int = lambda x: aux_pkint_hankel(y_kr=x, r=r, pkfunction=pkfunction)
