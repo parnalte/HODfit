@@ -3,6 +3,7 @@
 import hods_clustering as hc
 import hods_hodmodel as hod
 import numpy as np
+import time
 
 redshift = 0.52
 OmegaM_0 = 0.274
@@ -31,4 +32,8 @@ alpha_start = 1.2
 
 rp = np.logspace(np.log10(0.3),np.log10(12),16)
 
+t1 = time.time()
 wp_start = wp_hod(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start, alpha=alpha_start, hodclustering=hodclust_object)
+t2 = time.time()
+
+print "Computing wp took ", t2 - t1, " seconds."
