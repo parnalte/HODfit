@@ -17,11 +17,12 @@
 
 import numpy as np
 import astropy.cosmology as ac
+import hankel
 from scipy import integrate
 import hods_halomodel as halomodel
 import hods_hodmodel as hodmodel
 import hods_densprofile as densprofile
-from hods_utils import PowerSpectrum, xir2wp_pi
+from hods_utils import PowerSpectrum, xir2wp_pi, nostdout
 
 
 ################################
@@ -283,7 +284,7 @@ class HODClustering():
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min = 10.0, logM_max = 16.0, logM_step = 0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=1):
+                 halo_exclusion_model=1, sph_hankel=None):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -307,7 +308,8 @@ class HODClustering():
         self.scale_dep_bias = scale_dep_bias
         self.use_mvir_limit = use_mvir_limit
         self.halo_exclusion_model = halo_exclusion_model
-
+        self.sph_hankel = sph_hankel
+        
         self.pk_satsat = None
         self.pk_2h     = None
 
@@ -414,7 +416,7 @@ class HODClustering():
             kvalues = self.powesp_matter.k
             self.get_pk_satsat(kvalues=kvalues)
 
-        xir_ss = self.pk_satsat.xir(rvals=rvalues)
+        xir_ss = self.pk_satsat.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
 
         return xir_ss
 
@@ -487,7 +489,7 @@ class HODClustering():
             if self.pk_2h is None:
                 self.get_pk_2h()
 
-            xir_2h = self.pk_2h.xir(rvals=rvalues)
+            xir_2h = self.pk_2h.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
 
 
         #Zheng's halo exclusion model
@@ -509,7 +511,7 @@ class HODClustering():
                     xir_2h[i] = 0
                 else:
                     pk_scale = self.get_pk_2h_scale(masslim, nprime)
-                    xiprime = pk_scale.xir(r)
+                    xiprime = pk_scale.xir(r, sph_hankel=self.sph_hankel)
 
                     #Need to re-escale, as in eq. (B9) of Tinker-2005
                     xir_2h[i] = \
@@ -521,7 +523,7 @@ class HODClustering():
             
 
         if self.scale_dep_bias:
-            xi_matter = self.powesp_matter.xir(rvals=rvalues)
+            xi_matter = self.powesp_matter.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
             bias_correction = \
                 pow(1. + (1.17*xi_matter), 1.49)/pow(1. + (0.69*xi_matter), 2.09)
             xir_2h = bias_correction*xir_2h
@@ -575,7 +577,8 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
-                        halo_exclusion_model=1, use_tinker_bias_params=True):
+                        halo_exclusion_model=1, use_tinker_bias_params=True,
+                        hankelN=6000, hankelh=0.0005):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -633,6 +636,10 @@ Are you sure that is what you really want?")
                                           redshift=redshift, par_b=bpar, par_c=cpar)
 
 
+    #Now, create the SphericalHankelTransform needed for the conversions
+    #P(k) --> xi(r)
+    with nostdout():
+        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
     
     #And finally, define the clustering object
     model_clustering_object = \
@@ -642,7 +649,8 @@ Are you sure that is what you really want?")
                       logM_min=logM_min, logM_max=logM_max,
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,
-                      halo_exclusion_model=halo_exclusion_model)
+                      halo_exclusion_model=halo_exclusion_model,
+                      sph_hankel=sph_hankel)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens

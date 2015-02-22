@@ -62,7 +62,7 @@ def aux_pkint_hankel(y_kr, r, pkfunction):
     
 #These values of hankelN, hankelh = (6000, 0.0005) seem to work very well over all the
 #relevant scales using WMAP7_z0_lin, probably fine for all our purposes
-def pk2xir_hankel(rvalues, pkfunction, hankelN=6000, hankelh=0.0005):
+def pk2xir_hankel(rvalues, pkfunction, hankelN=6000, hankelh=0.0005, sph_hankel=None):
     """
     Function that makes the standard tranformation from P(k) to xi(r) performing a
     Hankel transform, using the functions in library 'hankel.py' by Steven Murray.
@@ -76,6 +76,11 @@ def pk2xir_hankel(rvalues, pkfunction, hankelN=6000, hankelh=0.0005):
     \\xi(r) = \frac{4\pi}{(2 \pi r)^3} \int_0^{+\infty} [y^2 P(y/r)] j_0(y) dy ,
 
     where j_0(y) = sin(y)/y
+
+    Input parameters:
+        sph_hankel should be an instance of a hankel.SphericalHankelTransform class,
+        with nu=0. hankelN and hankelh are ignoredi sph_hankel is given, if sph_hankel is
+        None, they are used to define the needed instance for the transform.
     """
 
     rvalues = np.atleast_1d(rvalues)
@@ -84,10 +89,11 @@ def pk2xir_hankel(rvalues, pkfunction, hankelN=6000, hankelh=0.0005):
 
     xi_out = np.empty(Nr,float)
 
-    #Define the needed Hankel Transform instance, avoid printing
+    #If not given, define the needed Hankel Transform instance, avoid printing
     #lots of stuff coming from the definition
-    with nostdout():
-        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
+    if sph_hankel is None:
+        with nostdout():
+            sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
     
     for i,r in enumerate(rvalues):
         func_int = lambda x: aux_pkint_hankel(y_kr=x, r=r, pkfunction=pkfunction)
@@ -215,14 +221,14 @@ class PowerSpectrum:
 
 
 
-    def xir(self, rvals, hankelN=6000, hankelh=0.0005):
+    def xir(self, rvals, hankelN=6000, hankelh=0.0005, sph_hankel=None):
         """
         Function that performs a Hankel transform to obtain the 2-point correlation function
         corresponding to the power spectrum.
         """
 
         xivals = pk2xir_hankel(rvalues=rvals, pkfunction=self.pkinterp,
-                               hankelN=hankelN, hankelh=hankelh)
+                               hankelN=hankelN, hankelh=hankelh, sph_hankel=sph_hankel)
 
         return xivals
 
