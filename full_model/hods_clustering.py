@@ -29,9 +29,9 @@ from hods_utils import PowerSpectrum, xir2wp_pi, nostdout
 # Integral quantities needed for different terms
 ################################
 
-#Basically, follow the same procedure as done for
-#halomodel.HaloModelMW02.integral_quantities() and
-#hodmodel.dens_galaxies
+# Basically, follow the same procedure as done for
+# halomodel.HaloModelMW02.integral_quantities() and
+# hodmodel.dens_galaxies
 
 def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
                                redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
@@ -51,13 +51,13 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
     pre-computed quantities in the hod and halo instances.
     """
 
-    #Convert input to array if it is not, and check it is only 1D!
+    # Convert input to array if it is not, and check it is only 1D!
     rvalues = np.atleast_1d(rvalues)
     assert rvalues.ndim == 1
     Nr = len(rvalues)
 
-    #Check that the array quantities are properly set and
-    #match each other
+    # Check that the array quantities are properly set and
+    # match each other
     assert hod_instance.Nm > 0
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
@@ -67,43 +67,43 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
                                                   cosmo=cosmo,
                                                   powesp_lin_0=powesp_lin_0)
 
-    #Compute the profile at all the scales 'rvalue' for all our mass values
-    #Output array will have shape (Nr, Nm), which
-    #is the correct one to pass to integration routine
-    #Include the needed normalisation
+    # Compute the profile at all the scales 'rvalue' for all our mass values
+    # Output array will have shape (Nr, Nm), which
+    # is the correct one to pass to integration routine
+    # Include the needed normalisation
     dprofile_config = \
-            profile_instance.profile_config(r=rvalues)/hod_instance.mass_array
+        profile_instance.profile_config(r=rvalues)/hod_instance.mass_array
 
-    #Implement the virial mass lower limit in the integration, as in
-    #eq. (A17) in C2012
+    # Implement the virial mass lower limit in the integration, as in
+    # eq. (A17) in C2012
     #
-    #We will create a (Nr, Nm) array containing 0 or 1 depending on whether
-    #the mass at this point is larger than mvir(r) for r at this point
+    # We will create a (Nr, Nm) array containing 0 or 1 depending on whether
+    # the mass at this point is larger than mvir(r) for r at this point
     if use_mvir_limit:
-        #First, compute an array containing the values of mvir for the
-        #scales r considered
-        mvir_values = densprofile.massvir_from_radius(radius = rvalues,
+        # First, compute an array containing the values of mvir for the
+        # scales r considered
+        mvir_values = densprofile.massvir_from_radius(radius=rvalues,
                                                       redshift=redshift,
                                                       cosmo=cosmo)
-        
-        #Now, create a (Nm, Nr) array containing the mass_array values
+
+        # Now, create a (Nm, Nr) array containing the mass_array values
         mass_array_2d = np.tile(np.atleast_2d(hod_instance.mass_array).T, Nr)
 
-        #And the corresponding (Nr, Nm) array containing the mvir_values
+        # And the corresponding (Nr, Nm) array containing the mvir_values
         mvir_array_2d = np.tile(np.atleast_2d(mvir_values).T, hod_instance.Nm)
 
-        #And compute the selection 2d array (as int)
+        # And compute the selection 2d array (as int)
         select_mvir_2d = np.array(mass_array_2d.T > mvir_array_2d, int)
 
     else:
-        #If we do not make this selection, just create the corresponding
-        #array accepting all mass values
-        select_mvir_2d = np.ones((Nr,hod_instance.Nm), int)
+        # If we do not make this selection, just create the corresponding
+        # array accepting all mass values
+        select_mvir_2d = np.ones((Nr, hod_instance.Nm), int)
 
-    #When doing the integration, take into account the mvir limit
+    # When doing the integration, take into account the mvir limit
     return integrate.simps(
-        y=(halo_instance.ndens_diff_m_array*\
-           hod_instance.n_cent_array*hod_instance.n_sat_array*\
+        y=(halo_instance.ndens_diff_m_array *
+           hod_instance.n_cent_array * hod_instance.n_sat_array *
            dprofile_config*select_mvir_2d),
         x=hod_instance.mass_array, even='first')
 
@@ -129,26 +129,25 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
     density profiles.
     """
 
-    #Check that the array quantities are properly set and
-    #match each other
+    # Check that the array quantities are properly set and
+    # match each other
     assert hod_instance.Nm > 0
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-
-    #No profile provided, have to compute it here
+    # No profile provided, have to compute it here
     if prof_fourier is None:
         profile_instance = densprofile.HaloProfileNFW(
             mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
             powesp_lin_0=powesp_lin_0)
 
-        #Compute the Fourier-space profile at all the scales 'kvalues'
-        #for all our mass values
-        #Output array will have shape (Nk, Nm), which is the correct one to
-        #pass to integration routine
+        # Compute the Fourier-space profile at all the scales 'kvalues'
+        # for all our mass values
+        # Output array will have shape (Nk, Nm), which is the correct one to
+        # pass to integration routine
         dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
 
-    #If given, have to check that it has appropriate dimensions
+    # If given, have to check that it has appropriate dimensions
     else:
         assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
         dprofile_fourier = prof_fourier
@@ -156,13 +155,13 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
     dprof_term = pow(np.absolute(dprofile_fourier), 2)
 
     return integrate.simps(
-        y=(halo_instance.ndens_diff_m_array*(hod_instance.n_sat_array**2)\
-           *dprof_term),
+        y=(halo_instance.ndens_diff_m_array*(hod_instance.n_sat_array**2) *
+           dprof_term),
         x=hod_instance.mass_array, even='first')
-    
-    
+
+
 def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
-                      halo_instance=None, logM_min = 10.0, logM_step = 0.05):
+                      halo_instance=None, logM_min=10.0, logM_step=0.05):
     """
     Computes the upper mass integration limit and the modified galaxy
     density (nprime) needed to implement the Zheng (2004) model for the
@@ -170,27 +169,27 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
     eqs. (B4) and (B6) in Tinker et al. (2005).
     """
 
-    #Want 'rscales' to be a 1D array
+    # Want 'rscales' to be a 1D array
     rscales = np.atleast_1d(rscales)
     assert rscales.ndim == 1
     Nr = len(rscales)
 
-    #First, compute the upper mass limit: virial mass for haloes of radius
-    #Rad = r/2
-    mass_lim = densprofile.massvir_from_radius(radius = rscales/2.,
+    # First, compute the upper mass limit: virial mass for haloes of radius
+    # Rad = r/2
+    mass_lim = densprofile.massvir_from_radius(radius=rscales/2.,
                                                redshift=redshift, cosmo=cosmo)
 
-    #And now, compute the corresponding n_prime
+    # And now, compute the corresponding n_prime
     n_prime_array = np.empty(Nr, float)
 
     for i, mlim in enumerate(mass_lim):
         n_prime_array[i] = \
-                hodmodel.dens_galaxies_arrays(hod_instance=hod_instance,
-                                              halo_instance=halo_instance,
-                                              mass_limit=mlim)
+            hodmodel.dens_galaxies_arrays(hod_instance=hod_instance,
+                                          halo_instance=halo_instance,
+                                          mass_limit=mlim)
 
     return mass_lim, n_prime_array
-    
+
 
 def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
                           redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
@@ -215,44 +214,42 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     density profiles.
     """
 
-    #Check that the array quantities are properly set and
-    #match each other
+    # Check that the array quantities are properly set and
+    # match each other
     assert hod_instance.Nm > 0
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-
-    #No profile provided, have to compute it here
+    # No profile provided, have to compute it here
     if prof_fourier is None:
         profile_instance = densprofile.HaloProfileNFW(
             mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
             powesp_lin_0=powesp_lin_0)
 
-        #Compute the Fourier-space profile at all the scales 'kvalues'
-        #for all our mass values
-        #Output array will have shape (Nk, Nm), which is the correct one to
-        #pass to integration routine
+        # Compute the Fourier-space profile at all the scales 'kvalues'
+        # for all our mass values
+        # Output array will have shape (Nk, Nm), which is the correct one to
+        # pass to integration routine
         dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
 
-    #If given, have to check that it has appropriate dimensions
+    # If given, have to check that it has appropriate dimensions
     else:
         assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
         dprofile_fourier = prof_fourier
-        
+
     dprof_term = np.absolute(dprofile_fourier)
 
-    #Implement the upper mass limit if needed
+    # Implement the upper mass limit if needed
     if mass_limit is not None:
         mlim_selection = np.array(hod_instance.mass_array <= mass_limit, int)
     else:
         mlim_selection = np.ones(hod_instance.Nm, int)
 
     return integrate.simps(
-        y=(halo_instance.ndens_diff_m_array*hod_instance.n_tot_array*\
-           halo_instance.bias_array*dprof_term*mlim_selection),
+        y=(halo_instance.ndens_diff_m_array * hod_instance.n_tot_array *
+           halo_instance.bias_array * dprof_term * mlim_selection),
         x=hod_instance.mass_array, even='first')
-    
-    
+
 
 class HODClustering():
     """
@@ -282,7 +279,7 @@ class HODClustering():
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
-                 logM_min = 10.0, logM_max = 16.0, logM_step = 0.05,
+                 logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
                  halo_exclusion_model=1, sph_hankel=None):
 
@@ -295,7 +292,6 @@ class HODClustering():
         assert logM_max > logM_min
         assert logM_step > 0
 
-        
         self.redshift = redshift
         self.cosmo = cosmo
         self.powesp_matter = powesp_matter
@@ -309,75 +305,75 @@ class HODClustering():
         self.use_mvir_limit = use_mvir_limit
         self.halo_exclusion_model = halo_exclusion_model
         self.sph_hankel = sph_hankel
-        
+
         self.pk_satsat = None
-        self.pk_2h     = None
+        self.pk_2h = None
 
-
-        #When creating the instance, compute the mass-dependent quantities
-        #that we will need later
-        self.hod.set_mass_arrays(logM_min=self.logM_min, logM_max=self.logM_max,
+        # When creating the instance, compute the mass-dependent quantities
+        # that we will need later
+        self.hod.set_mass_arrays(logM_min=self.logM_min,
+                                 logM_max=self.logM_max,
                                  logM_step=self.logM_step)
         self.halomodel.set_mass_arrays(logM_min=self.logM_min,
                                        logM_max=self.logM_max,
                                        logM_step=self.logM_step)
 
-        #Compute galaxy density for this model
-        self.gal_dens = hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
-                                               halo_instance=self.halomodel)
+        # Compute galaxy density for this model
+        self.gal_dens = \
+            hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
+                                          halo_instance=self.halomodel)
 
-        #Create the profile instance, and pre-compute the Fourier-space
-        #profile. Will compute it at the k values given by powesp_matter
-        self.densprofile = densprofile.HaloProfileNFW(mass=self.hod.mass_array,
-                                                  redshift=self.redshift,
-                                                  cosmo=self.cosmo,
-                                                  powesp_lin_0=self.powesp_lin_0)
+        # Create the profile instance, and pre-compute the Fourier-space
+        # profile. Will compute it at the k values given by powesp_matter
+        self.densprofile = \
+            densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                       redshift=self.redshift,
+                                       cosmo=self.cosmo,
+                                       powesp_lin_0=self.powesp_lin_0)
         self.kvals = self.powesp_matter.k
         self.dprofile_fourier = self.densprofile.profile_fourier(k=self.kvals)
-        
 
     def update_hod(self, hod_instance):
         """
         Function to update only the HOD values for the HODClustering object.
-        Avoid the need to re-read other parameters when we only whant to change HOD (most comman case,
-        e.g. for fitting).
+        Avoid the need to re-read other parameters when we only whant to
+        change HOD (most comman case, e.g. for fitting).
         """
 
         assert hod_instance is not None
 
-        #Update the HOD value, recompute mass-dependent quantities
-        #and density accordingly
+        # Update the HOD value, recompute mass-dependent quantities
+        # and density accordingly
         self.hod = hod_instance
-        self.hod.set_mass_arrays(logM_min=self.logM_min, logM_max=self.logM_max,
+        self.hod.set_mass_arrays(logM_min=self.logM_min,
+                                 logM_max=self.logM_max,
                                  logM_step=self.logM_step)
-        self.gal_dens = hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
-                                               halo_instance=self.halomodel)
+        self.gal_dens = \
+            hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
+                                          halo_instance=self.halomodel)
 
-        #We will need to re-compute all clustering terms, so reset them
+        # We will need to re-compute all clustering terms, so reset them
         self.pk_satsat = None
-        self.pk_2h     = None
+        self.pk_2h = None
 
-        
     def xi_centsat(self, rvalues):
         """
         Computes the xi for the central-satellite term at the scales
         given by 'rvalues'
         """
 
-        Nr = len(rvalues)
-
-        int_cs_r = integral_centsatterm_array(rvalues=rvalues,
-                                              hod_instance=self.hod,
-                                              halo_instance=self.halomodel,
-                                              redshift=self.redshift,
-                                              cosmo=self.cosmo,
-                                              powesp_lin_0=self.powesp_lin_0,
-                                              use_mvir_limit = self.use_mvir_limit)
+        int_cs_r = \
+            integral_centsatterm_array(rvalues=rvalues,
+                                       hod_instance=self.hod,
+                                       halo_instance=self.halomodel,
+                                       redshift=self.redshift,
+                                       cosmo=self.cosmo,
+                                       powesp_lin_0=self.powesp_lin_0,
+                                       use_mvir_limit=self.use_mvir_limit)
 
         xir_cs = (2.*int_cs_r/pow(self.gal_dens, 2)) - 1.
 
         return xir_cs
-
 
     def get_pk_satsat(self, kvalues):
         """
@@ -386,23 +382,19 @@ class HODClustering():
         Stores the result in self.pk_satsat as a PowerSpectrum instance
         """
 
-        Nk = len(kvalues)
+        int_ss_k = \
+            integral_satsatterm_array(kvalues=kvalues,
+                                      hod_instance=self.hod,
+                                      halo_instance=self.halomodel,
+                                      redshift=self.redshift,
+                                      cosmo=self.cosmo,
+                                      powesp_lin_0=self.powesp_lin_0,
+                                      prof_fourier=self.dprofile_fourier)
 
-        int_ss_k = integral_satsatterm_array(kvalues=kvalues,
-                                             hod_instance=self.hod,
-                                             halo_instance=self.halomodel,
-                                             redshift=self.redshift,
-                                             cosmo=self.cosmo,
-                                             powesp_lin_0=self.powesp_lin_0,
-                                             prof_fourier=self.dprofile_fourier)
-                
         pkvals = int_ss_k/pow(self.gal_dens, 2.)
 
         self.pk_satsat = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
-
-
-        
     def xi_satsat(self, rvalues):
         """
         Computes the xi for satellite-satellite term at the scales
@@ -412,7 +404,7 @@ class HODClustering():
         """
 
         if self.pk_satsat is None:
-            #Use same k-values as in matter power spectrum
+            # Use same k-values as in matter power spectrum
             kvalues = self.powesp_matter.k
             self.get_pk_satsat(kvalues=kvalues)
 
@@ -420,7 +412,6 @@ class HODClustering():
 
         return xir_ss
 
-    
     def get_pk_2h(self):
         """
         Computes the power spectrum for the 2-halo term, assuming a halo bias
@@ -429,20 +420,18 @@ class HODClustering():
         Stores the result in self.pk_2h as a PowerSpectrum instance
         """
 
-        kvalues = self.powesp_matter.k       
-        Nk = len(kvalues)
+        kvalues = self.powesp_matter.k
 
-        int_2h_k = integral_2hterm_array(kvalues=kvalues, hod_instance=self.hod,
+        int_2h_k = integral_2hterm_array(kvalues=kvalues,
+                                         hod_instance=self.hod,
                                          halo_instance=self.halomodel,
                                          redshift=self.redshift,
                                          cosmo=self.cosmo,
                                          powesp_lin_0=self.powesp_lin_0,
                                          prof_fourier=self.dprofile_fourier)
-        
         pkvals = self.powesp_matter.pk*pow(int_2h_k/self.gal_dens, 2)
-        
-        self.pk_2h = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
+        self.pk_2h = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
     def get_pk_2h_scale(self, mass_lim, nprime):
         """
@@ -455,10 +444,10 @@ class HODClustering():
         """
 
         kvalues = self.powesp_matter.k
-        Nk = len(kvalues)
 
-        #Do the 2D-integral, adding the mass limit as upper integration limit
-        int_2h_k = integral_2hterm_array(kvalues=kvalues, hod_instance=self.hod,
+        # Do the 2D-integral, adding the mass limit as upper integration limit
+        int_2h_k = integral_2hterm_array(kvalues=kvalues,
+                                         hod_instance=self.hod,
                                          halo_instance=self.halomodel,
                                          redshift=self.redshift,
                                          cosmo=self.cosmo,
@@ -466,13 +455,11 @@ class HODClustering():
                                          mass_limit=mass_lim,
                                          prof_fourier=self.dprofile_fourier)
 
-        #Now, compute P(k) taking into account the modified galaxy density
+        # Now, compute P(k) taking into account the modified galaxy density
         pkvals = self.powesp_matter.pk*pow(int_2h_k/nprime, 2)
 
         return PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
-        
-        
     def xi_2h(self, rvalues):
         """
         Computes the xi for the 2-halo term at the scales given by 'rvalues'
@@ -484,15 +471,14 @@ class HODClustering():
         eq. (A13) in C2002
         """
 
-        #No halo exclusion considered, just use 'the' 2h power spectrum
+        # No halo exclusion considered, just use 'the' 2h power spectrum
         if self.halo_exclusion_model == 0:
             if self.pk_2h is None:
                 self.get_pk_2h()
 
             xir_2h = self.pk_2h.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
 
-
-        #Zheng's halo exclusion model
+        # Zheng's halo exclusion model
         elif self.halo_exclusion_model == 1:
 
             xir_2h = np.empty(len(rvalues), float)
@@ -503,33 +489,33 @@ class HODClustering():
                                   halo_instance=self.halomodel,
                                   logM_min=self.logM_min,
                                   logM_step=self.logM_step)
-            
-            for i, (r, masslim, nprime) in \
-                enumerate(zip(rvalues, mlimvals, nprimevals)):
 
-                if nprime == 0: #Typically, if mass_lim < hod.mass_min
+            for i, (r, masslim, nprime) in\
+                    enumerate(zip(rvalues, mlimvals, nprimevals)):
+
+                if nprime == 0:  # Typically, if mass_lim < hod.mass_min
                     xir_2h[i] = 0
                 else:
                     pk_scale = self.get_pk_2h_scale(masslim, nprime)
                     xiprime = pk_scale.xir(r, sph_hankel=self.sph_hankel)
 
-                    #Need to re-escale, as in eq. (B9) of Tinker-2005
+                    # Need to re-escale, as in eq. (B9) of Tinker-2005
                     xir_2h[i] = \
                         (pow(nprime/self.gal_dens, 2)*(1. + xiprime)) - 1.
 
         else:
-            raise \
-                Exception("This halo exclusion model is not implemented (yet)!")
-            
+            raise Exception(
+                "This halo exclusion model is not implemented (yet)!")
 
         if self.scale_dep_bias:
-            xi_matter = self.powesp_matter.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
+            xi_matter = self.powesp_matter.xir(rvals=rvalues,
+                                               sph_hankel=self.sph_hankel)
             bias_correction = \
-                pow(1. + (1.17*xi_matter), 1.49)/pow(1. + (0.69*xi_matter), 2.09)
+                pow(1. + (1.17 * xi_matter), 1.49) /\
+                pow(1. + (0.69 * xi_matter), 2.09)
             xir_2h = bias_correction*xir_2h
 
         return xir_2h
-
 
     def xi_1h(self, rvalues):
         """
@@ -551,7 +537,6 @@ class HODClustering():
 
         return xir_total
 
-
     def xi_all(self, rvalues):
         """
         Computes all the relevant correlation functions at once
@@ -569,7 +554,6 @@ class HODClustering():
         return xi_tot, xi_2h, xi_1h, xi_cs, xi_ss
 
 
-        
 def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         powesp_matter_file="test/WMAP7_z0_matterpower.dat",
                         powesp_linz0_file="test/WMAP7_linz0_matterpower.dat",
@@ -588,22 +572,22 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
     if redshift > 10:
         raise UserWarning("You entered a quite high value of redshift (>10). \
 I am not sure these models are valid there, proceed at your own risk.")
-    
-    #First, build the Cosmology object
-    #As we work always using distances in Mpc/h, we should be
-    #fine setting H0=100
+
+    # First, build the Cosmology object
+    # As we work always using distances in Mpc/h, we should be
+    # fine setting H0=100
     assert OmegaM0 >= 0
     if (OmegaM0 + OmegaL0) != 1:
         raise UserWarning("You are using a non-flat cosmology. \
 Are you sure that is what you really want?")
     cosmo_object = ac.LambdaCDM(H0=100, Om0=OmegaM0, Ode0=OmegaL0)
 
-    #Build the needed PowerSpectrum objects
+    # Build the needed PowerSpectrum objects
     try:
         km, pkm = np.loadtxt(powesp_matter_file, usecols=range(2), unpack=True)
         pk_matter_object = PowerSpectrum(kvals=km, pkvals=pkm)
     except:
-        raise ValueError("Error reading matter power spectrum file %s" % \
+        raise ValueError("Error reading matter power spectrum file %s" %
                          powesp_matter_file)
 
     try:
@@ -611,17 +595,16 @@ Are you sure that is what you really want?")
         pk_linz0_object = PowerSpectrum(kvals=kl, pkvals=pkl)
     except:
         raise ValueError(
-            "Error reading z=0 linear matter power spectrum file %s" % \
+            "Error reading z=0 linear matter power spectrum file %s" %
             powesp_linz0_file)
 
-    #Build the HOD object
+    # Build the HOD object
     hod_object = hodmodel.HODModel(hod_type=hod_type, mass_min=hod_mass_min,
                                    mass_1=hod_mass_1, alpha=hod_alpha,
                                    siglogM=hod_siglogM, mass_0=hod_mass_0)
 
-
-    #Build the halo model object.
-    #We have two options for the parameters defining the bias:
+    # Build the halo model object.
+    # We have two options for the parameters defining the bias:
     # - Use the original bias parameters from Sheth (2001), MoWhite2002
     # - Use the modified parameters following Tinker (2005)
     if use_tinker_bias_params:
@@ -630,18 +613,19 @@ Are you sure that is what you really want?")
     else:
         bpar = 0.5
         cpar = 0.6
-        
+
     halo_object = halomodel.HaloModelMW02(cosmo=cosmo_object,
                                           powesp_lin_0=pk_linz0_object,
-                                          redshift=redshift, par_b=bpar, par_c=cpar)
+                                          redshift=redshift,
+                                          par_b=bpar, par_c=cpar)
 
-
-    #Now, create the SphericalHankelTransform needed for the conversions
-    #P(k) --> xi(r)
+    # Now, create the SphericalHankelTransform needed for the conversions
+    # P(k) --> xi(r)
     with nostdout():
-        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN, h=hankelh)
-    
-    #And finally, define the clustering object
+        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN,
+                                                     h=hankelh)
+
+    # And finally, define the clustering object
     model_clustering_object = \
         HODClustering(redshift=redshift, cosmo=cosmo_object,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
@@ -656,10 +640,8 @@ Are you sure that is what you really want?")
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
 
     return model_clustering_object
-    
-    
-        
-        
+
+
 def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
                 pimin=0.001, pimax=500, npi=300):
     """
@@ -667,13 +649,11 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
     If partial_terms=True, return also the 1-halo and 2-halo terms
     """
 
-    #First, checks on rp and convert to 1D array
+    # First, checks on rp and convert to 1D array
     rpvals = np.atleast_1d(rpvals)
     assert rpvals.ndim == 1
-    Nrp = len(rpvals)
 
-    
-    #Define the array in r we will use to compute the model xi(r)
+    # Define the array in r we will use to compute the model xi(r)
     rmin = rpvals.min()
     rmax = np.sqrt((pimax**2.) + (rpvals.max()**2.))
     rarray = np.logspace(np.log10(rmin), np.log10(rmax), nr)
@@ -683,22 +663,22 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
 
     if partial_terms:
 
-        #Obtain the needed xi(r) functions
+        # Obtain the needed xi(r) functions
         xitot, xi2h, xi1h, xics, xiss = \
-                clustering_object.xi_all(rvalues=rarray)
+            clustering_object.xi_all(rvalues=rarray)
 
-        #And convert to wp(rp) functions
+        # And convert to wp(rp) functions
         wptot = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xitot,
                           logpimin=logpimin, logpimax=logpimax, npi=npi)
         wp2h = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xi2h,
-                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+                         logpimin=logpimin, logpimax=logpimax, npi=npi)
         wp1h = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xi1h,
-                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+                         logpimin=logpimin, logpimax=logpimax, npi=npi)
         wpcs = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xics,
-                          logpimin=logpimin, logpimax=logpimax, npi=npi)
+                         logpimin=logpimin, logpimax=logpimax, npi=npi)
         wpss = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xiss,
-                          logpimin=logpimin, logpimax=logpimax, npi=npi)
-        
+                         logpimin=logpimin, logpimax=logpimax, npi=npi)
+
         return wptot, wp2h, wp1h, wpcs, wpss
 
     else:
@@ -708,4 +688,3 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
                           logpimin=logpimin, logpimax=logpimax, npi=npi)
 
         return wptot
-
