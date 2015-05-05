@@ -22,19 +22,17 @@ import hods_hodmodel as hodmodel
 import hods_clustering as clustering
 
 
-
-
 def get_hod_from_params(hod_params, hod_type=1):
     """
     Define a new HOD class instance from the parameters.
     (This should probably be moved to the hods_hodmodel.py library!)
     """
-    
-    if hod_type==1:
+
+    if hod_type == 1:
         log10Mmin, log10M1, alpha = hod_params
         new_hod = hodmodel.HODModel(hod_type=1, mass_min=10**log10Mmin,
                                     mass_1=10**log10M1, alpha=alpha)
-    elif hod_type==2:
+    elif hod_type == 2:
         log10Mmin, log10M1, alpha, siglogM, log10M0 = hod_params
         new_hod = hodmodel.HODModel(hod_type=2, mass_min=10**log10Mmin,
                                     mass_1=10**log10M1, alpha=alpha,
@@ -45,10 +43,6 @@ def get_hod_from_params(hod_params, hod_type=1):
                          % hod_type)
 
     return new_hod
-    
-
-    
-
 
 
 def wp_hod(rp, hod_params, clustobj=None, hod_type=1, nr=100, pimin=0.001,
@@ -65,29 +59,28 @@ def wp_hod(rp, hod_params, clustobj=None, hod_type=1, nr=100, pimin=0.001,
     parameter (same options as in HODModel class)
     """
 
-    
-    #First, define the new HOD given the parameters
+    # First, define the new HOD given the parameters
     new_hod = get_hod_from_params(hod_params, hod_type)
 
-    #Now, update the hodclustering object
+    # Now, update the hodclustering object
     clustobj.update_hod(new_hod)
-    
-    #And compute the wp values (use default values for the details)
+
+    # And compute the wp values (use default values for the details)
     return clustering.get_wptotal(rpvals=rp, clustering_object=clustobj,
                                   nr=nr, pimin=pimin, pimax=pimax, npi=npi)
 
-    
+
 def chi2_fullmatrix(data_vals, inv_covmat, model_predictions):
     """
     Given a set of data points, its inverse covariance matrix and the
     corresponding set of model predictions, computes the standard chi^2
     statistic (using the full covariances)
     """
-    
+
     y_diff = data_vals - model_predictions
     return np.dot(y_diff, np.dot(inv_covmat, y_diff))
 
-    
+
 def lnprior_flat(hod_params, param_lims, hod_type=1):
     """
     Returns the (un-normalised) log(P) for a flat prior on the HOD parameters.
@@ -96,14 +89,14 @@ def lnprior_flat(hod_params, param_lims, hod_type=1):
     directly.
 
     We allow the use of different HOD parameterisations using the 'hod_type'
-    parameter (same options as in HODModel class).    
+    parameter (same options as in HODModel class).
     """
 
-    if hod_type==1:
+    if hod_type == 1:
         logMmin, logM1, alpha = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
             alpha_min, alpha_max = param_lims
-        
+
         if logMm_min < logMmin < logMm_max and \
            logM1_min < logM1 < logM1_max and \
            alpha_min < alpha < alpha_max:
@@ -111,7 +104,7 @@ def lnprior_flat(hod_params, param_lims, hod_type=1):
         else:
             return -np.inf
 
-    elif hod_type==2:
+    elif hod_type == 2:
         logMmin, logM1, alpha, siglogM, logM0 = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
             alpha_min, alpha_max, siglogM_min, siglogM_max, \
@@ -133,7 +126,8 @@ def lnprior_flat(hod_params, param_lims, hod_type=1):
 
 
 def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
-                            hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
+                            hod_type=1, nr=100, pimin=0.001, pimax=400,
+                            npi=100):
     """
     Computes the (un-normalised) log-likelihood of the data wp(rp) given
     its inverse covariance matrix, and the given values of the HOD parameters.
@@ -151,12 +145,10 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
     wp_model = wp_hod(rp=rp, hod_params=hod_params, clustobj=clustobj,
                       hod_type=hod_type, nr=nr, pimin=pimin, pimax=pimax,
                       npi=npi)
-    
+
     return -0.5*chi2_fullmatrix(data_vals=wp, inv_covmat=wp_icov,
                                 model_predictions=wp_model)
 
-
-    
 
 def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
                 hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
@@ -171,9 +163,9 @@ def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
     * We allow the use of different HOD parameterisations using the 'hod_type'
       parameter (same options as in HODModel class).
     """
-    
-    lprior = lnprior_flat(hod_params, param_lims, hod_type)
-    
+
+    lp = lnprior_flat(hod_params, param_lims, hod_type)
+
     if not np.isfinite(lp):
         return -np.inf
     else:
@@ -182,15 +174,14 @@ def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
                                             pimax, npi)
 
 
-
 def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
     """
     Do the scale selection for arrays that depend on scale:
     rp, wp, wp errors, and wp covariance matrix (the last two are optional)
     """
 
-    #Check everything makes sense
-    assert rpmin >=0
+    # Check everything makes sense
+    assert rpmin >= 0
     assert rpmax > rpmin
 
     Nr = len(rp)
@@ -200,12 +191,12 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
         assert len(wperr) == Nr
 
     if wp_covmatrix is not None:
-        assert wp_covmatrix.shape == (Nr,Nr)
+        assert wp_covmatrix.shape == (Nr, Nr)
 
-    #Define the selection
-    scale_selection = (rpmin<rp)*(rp<rpmax)
+    # Define the selection
+    scale_selection = (rpmin < rp)*(rp < rpmax)
 
-    #And apply it to all the arrays
+    # And apply it to all the arrays
     rp = rp[scale_selection]
     wp = wp[scale_selection]
 
@@ -213,13 +204,14 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
         wperr = wperr[scale_selection]
 
     if wp_covmatrix is not None:
-        wp_covmatrix = wp_covmatrix[scale_selection][:,scale_selection]
+        wp_covmatrix = wp_covmatrix[scale_selection][:, scale_selection]
 
     return rp, wp, wperr, wp_covmatrix
-        
 
 
-def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims, return_model=False, minim_method='Powell', clustobj=None, hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
+def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
+                  return_model=False, minim_method='Powell', clustobj=None,
+                  hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
     """
     Function to obtain the best-fit values of the HOD parameters, obtaining
     the maximum of the posterior function (equivalent to the maximum
@@ -239,29 +231,29 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims, return_model=Fa
         (wp_array, galaxy_density, mean_halo_mass, mean_galaxy_bias, frac_sat)
     """
 
-    #First, define the function to minimize (= -log-posterior)
+    # First, define the function to minimize (= -log-posterior)
     neglogposterior = lambda *args: -lnposterior(*args)
 
-    #Now, do the actual minimization calling the function
+    # Now, do the actual minimization calling the function
     maxpost_result = \
         optimize.minimize(fun=neglogposterior, x0=hod_params_start,
                           args=(rp, wp, wp_icov, param_lims, clustobj,
                                 hod_type, nr, pimin, pimax, npi),
                           method=minim_method)
 
-    #Actually print the results
+    # Actually print the results
     print "Results of the maximization of the log(Posterior):"
     print maxpost_result
 
-    #Get the best parameters values for output
+    # Get the best parameters values for output
     hod_params_best = maxpost_result['x']
 
-    #Now, if needed, get other results for this model
+    # Now, if needed, get other results for this model
     if return_model:
         wp_best = wp_hod(rp, hod_params_best, clustobj, hod_type, nr,
                          pimin, pimax, npi)
         hod_best = get_hod_from_params(hod_params_best, hod_type)
-        galdens_best  = \
+        galdens_best = \
             hodmodel.dens_galaxies_arrays(hod_instance=hod_best,
                                           halo_instance=clustobj.halomodel)
         meanhalomass_best = \
@@ -273,7 +265,7 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims, return_model=Fa
 
         fracsat_best = \
             hodmodel.fraction_satellites_array(hod_instance=hod_best,
-            halo_instance=clustobj.halomodel)
+                                              halo_instance=clustobj.halomodel)
 
         return hod_params_best, (wp_best, galdens_best,
                                  meanhalomass_best, meangalbias_best,
@@ -281,6 +273,3 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims, return_model=Fa
 
     else:
         return hod_params_best
-
-        
-        
