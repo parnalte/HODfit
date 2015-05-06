@@ -14,6 +14,8 @@ Fitting will be based on the scipy.optimize and emcee libraries.
 Some of these functions are taken/adapted from the emcee tutorials.
 """
 
+import os
+
 import numpy as np
 from scipy import optimize
 import emcee
@@ -275,7 +277,7 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
         return hod_params_best
 
 
-def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=1,
+def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
                                  param_lims=[-1, 1, -1, 1, -1, 1],
                                  central_position=[0, 0, 0],
                                  ball_size=[0.1, 0.1, 0.1]):
@@ -312,7 +314,7 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=1,
             d_min = param_lims[2*i]
             d_max = param_lims[2*i + 1]
             assert d_max > d_min
-            positions[:,i] = (d_max - d_min)*positions[:, i] + d_min
+            positions[:, i] = (d_max - d_min)*positions[:, i] + d_min
 
     elif init_type == 1:
         assert len(central_position) == n_dimensions
@@ -332,8 +334,77 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=1,
     return positions
 
 
-def run_mcmc():
+def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
+             nr=100, pimin=0.001, pimax=400, npi=100,
+             init_type=0, cent_pos=None, ball_size=None,
+             n_walkers=100, n_steps_per_walker=100, n_threads=1,
+             out_chain_file="chain.default"):
+    """
+    Function to run the basic MCMC from emcee given the data, and the
+    parameters defining the model.
 
+    TODO: description of input parameters and options
+
+    TODO: implement (including auxiliar functions) the option of taking into
+          account the number density of the sample in the fit
+
+    TODO: implement option to return also derived quantities for each sample
+          in the chain
+    """
+
+    # First, check if file already exists (and is not emtpy!)
+    # We do not want to overwrite anything
+    if os.path.exists(out_chain_file) and\
+            (os.stat(out_chain_file).st_size > 0):
+
+        raise RuntimeError("File " + out_chain_file + " already exists and is "
+                           "not empty. I will not overwrite anything!")
+
+    # Depending on HOD type considered, get number of dimensions,
+    # and header for the output file
+    if hod_type == 1:
+        n_dimensions = 3
+        header = "walker logMmin logM1 alpha\n"
+
+    elif hod_type == 2:
+        n_dimensions = 5
+        header = "walker logMmin logM1 alpha siglogM logM0\n"
+    else:
+        raise ValueError("The HOD parameterisation with"
+                         "hod_type = %d has not yet been implemented!"
+                         % hod_type)
+
+    # Write header to output file (so we make sure it exists later!)
+    f = open(out_chain_file, 'w')
+    f.write(header)
+    f.close()
+
+    # Define initial positions for walkers
+    initial_positions = \
+        get_initial_walker_positions(n_dimensions=n_dimensions,
+                                     n_walkers=n_walkers, init_type=init_type,
+                                     param_lims=param_lims,
+                                     central_position=cent_pos,
+                                     ball_size=ball_size)
+
+    # Now, define the emcee sampler
+    sampler = \
+        emcee.EnsembleSampler(nwalkers=n_walkers, dim=n_dimensions,
+                              lnpostfn=lnposterior, threads=n_threads,
+                              args=(rp, wp, wp_icov, param_lims, clustobj,
+                                    hod_type, nr, pimin, pimax, npi))
+
+    # And iterate the sampler, writing each of the samples to the output
+    # chain file
+    for result in sampler.sample(initial_positions,
+                                 iterations=n_steps_per_walker,
+                                 storechain=False):
+        position = result[0]
+        with open(out_chain_file, "a") as f:
+            for k in range(position.shape[0]):
+                f.write("%d  %s\n" % (k, str(position[k])[1:-1]))
+
+    # If we get this far, we are finished!
+    print "MCMC samples in run written to file ", out_chain_file
 
     return 0
-
