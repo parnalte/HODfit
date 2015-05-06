@@ -273,3 +273,67 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
 
     else:
         return hod_params_best
+
+
+def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=1,
+                                 param_lims=[-1, 1, -1, 1, -1, 1],
+                                 central_position=[0, 0, 0],
+                                 ball_size=[0.1, 0.1, 0.1]):
+    """
+    Function to get the initial positions of walkers in parameter space.
+    I implement (for now?) two different recipes, to be chosen by parameter
+    'init_type':
+
+    - init_type=0: distribute initial points uniformly inside parameter limits
+                   (anything fancy, so basically a flat prior on the parameters
+                   considered)
+                   parameter limits given by 'param_lims'
+    - init_type=1: distribute initial points in a Gaussian 'ball' (ellipsoid?)
+                   around a central point in parameter space (typically,
+                   close to the best-fit solution).
+                   This is recommended in
+                   http://dan.iel.fm/emcee/current/user/line/
+                   central point given by 'central_position'
+                   size of 'ball' in each dimension given by 'ball_size'
+    """
+
+    if init_type == 0:
+        assert len(param_lims) == n_dimensions*2
+
+        # First create random array of numbers between 0 and 1
+        # with the desired shape
+        positions = np.random.rand(n_walkers, n_dimensions)
+
+        # And now, scale each of the dimensions to the desired interval
+        for i in range(n_dimensions):
+
+            # param_lims will follow this convention, as in other functions
+            # here we just make it general, for any number of parameters
+            d_min = param_lims[2*i]
+            d_max = param_lims[2*i + 1]
+            assert d_max > d_min
+            positions[:,i] = (d_max - d_min)*positions[:, i] + d_min
+
+    elif init_type == 1:
+        assert len(central_position) == n_dimensions
+        assert len(ball_size) == n_dimensions
+
+        # Just use code from emcee example
+        positions = [central_position +
+                     ball_size*np.random.randn(n_dimensions)
+                     for i in range(n_walkers)]
+        positions = np.array(positions)
+
+    else:
+        raise ValueError("The initialisation of walkers with"
+                         "init_type = %d has not yet been implemented!"
+                         % init_type)
+
+    return positions
+
+
+def run_mcmc():
+
+
+    return 0
+
