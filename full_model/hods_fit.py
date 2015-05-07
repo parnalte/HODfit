@@ -408,3 +408,28 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     print "MCMC samples in run written to file ", out_chain_file
 
     return 0
+
+
+def read_chain_file(inchain_file="chain.default"):
+    """
+    Reads in data from a 'chains file' with the same format as written out
+    by function'run_mcmc'.
+    
+    In particular, note we read in the parameter names from the header of the
+    file, and we do not make any distiction between 'primary' and 'derived'
+    parameters.
+    
+    Returns a Pandas DataFrame containing the chain, and two parameters
+    containing the number of walkers and the number of iterations in the 
+    chain
+    """
+    
+    return 0
+    
+
+def analyse_mcmc(chain_file="chain.default", n_burn=50,
+                 corner_plot_file="corner.default.png", maxlike_values=None):
+
+    
+    
+    return 0
