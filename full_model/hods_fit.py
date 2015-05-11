@@ -17,6 +17,7 @@ Some of these functions are taken/adapted from the emcee tutorials.
 import os
 
 import numpy as np
+import pandas as pd
 from scipy import optimize
 import emcee
 
@@ -414,18 +415,40 @@ def read_chain_file(inchain_file="chain.default"):
     """
     Reads in data from a 'chains file' with the same format as written out
     by function'run_mcmc'.
-    
+
     In particular, note we read in the parameter names from the header of the
     file, and we do not make any distiction between 'primary' and 'derived'
     parameters.
-    
+
     Returns a Pandas DataFrame containing the chain, and two parameters
-    containing the number of walkers and the number of iterations in the 
+    containing the number of walkers and the number of iterations in the
     chain
     """
-    
-    return 0
-    
+
+    # First, read in file to DataFrame
+    df = pd.read_csv(inchain_file, delim_whitespace=True)
+
+    # Check that there's a column containing the walker no. in the file.
+    # Otherwise, there may be a problem with the format
+    if 'walker' not in df.columns:
+        raise RuntimeError("There may be a problem with the format of file" +
+                           inchain_file + ": no column for the walker no.!")
+
+    # Get no. of walkers
+    assert df['walker'].min() == 0
+    n_walkers = int(df['walker'].max() + 1)
+
+    # And get no. of iterations from the total no. of samples
+    n_samples = len(df)
+
+    n_iterations = n_samples/n_walkers
+
+    # Check there was no problem
+    assert n_samples == (n_iterations*n_walkers)
+
+    # Everything OK, return results
+    return df, n_walkers, n_iterations
+
 
 def analyse_mcmc(chain_file="chain.default", n_burn=50,
                  corner_plot_file="corner.default.png", maxlike_values=None):
