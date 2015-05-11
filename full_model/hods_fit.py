@@ -21,6 +21,7 @@ import pandas as pd
 from scipy import optimize
 import emcee
 import triangle
+import matplotlib.pyplot as plt
 
 import hods_hodmodel as hodmodel
 import hods_clustering as clustering
@@ -567,5 +568,87 @@ def print_conf_interval(ci_dictionary, perc_intervals=None):
                  ci_dictionary[param_name][i+1][0],
                  ci_dictionary[param_name][i+1][1])
         print "~~~~~~~~"
+
+    return 0
+
+
+def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
+                      chain_file="chain.default",
+                      plot_file="compplot.default.png",
+                      n_burn=50, maxlike_values=None, n_params=None,
+                      rp_ext=None, wp_ext=None, wperr_ext=None,
+                      clustobj=None, hod_type=1, nr=100, pimin=0.001,
+                      pimax=400, npi=100):
+    """
+    Draw a plot of wp(rp) comparing the data with a sampling of the allowed
+    models from the posterior.
+
+    TODO: explain in detail the input parameters and options
+    """
+
+    # First, read in the chain samples from the file
+    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+
+    # Remove burn-in period and drop the 'walker' column
+    df_chain = df_chain[n_walkers*n_burn:]
+    df_chain.drop('walker', axis=1, inplace=True)
+
+    # Define total number of samples in the 'clean' chain
+    n_samples_total = n_walkers*(n_iter - n_burn)
+
+    # Decide which rp values will be used for the models (if there is
+    # 'extended' data, extend the model also!)
+    if rp_ext is None:
+        rp_models = rp
+    else:
+        rp_models = rp_ext
+
+    # Decide on number of parameters to use:
+    # By default all parameters in chain, but we can set it to a different
+    # number, in case the chain also includes derived parameters
+    if n_params is None:
+        n_params = len(df_chain.columns)
+
+    # Create figure & axis so that we can start plotting
+    fig, ax = plt.subplots()
+
+    # First, plot the models sampled from the chain
+    for params in \
+        df_chain.values[np.random.randint(n_samples_total,
+                                          size=n_samples_plot), :n_params]:
+
+        ax.plot(rp_models,
+                wp_hod(rp=rp_models, hod_params=params, clustobj=clustobj,
+                       hod_type=hod_type, nr=nr, pimin=pimin, pimax=pimax,
+                       npi=npi),
+                color='k', alpha=0.1)
+
+    # Now, if given, plot the maximum-likelihood model
+    if maxlike_values is not None:
+        ax.plot(rp_models,
+                wp_hod(rp=rp_models, hod_params=maxlike_values,
+                       clustobj=clustobj, hod_type=hod_type, nr=nr,
+                       pimin=pimin, pimax=pimax, npi=npi),
+                'b-', lw=2, label='Best fit')
+
+    # If present, plot 'extended data'
+    if rp_ext is not None:
+        ax.errorbar(rp_ext, wp_ext, wperr_ext, marker='s', color='black',
+                    linestyle='', label="Extended data")
+
+    # Now, plot the 'real data'
+    ax.errorbar(rp, wp, wperr, marker='o', color='red',
+                linestyle='', label='Data')
+
+    # Set properties of plot
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel(r'$r_p (h^{-1}\, \mathrm{Mpc})$')
+    ax.set_ylabel(r'$w_p (h^{-1}\, \mathrm{Mpc})$')
+
+    ax.legend(loc=0)
+
+    # And save figure to file
+    fig.savefig(plot_file)
 
     return 0
