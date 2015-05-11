@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 import emcee
+import triangle
 
 import hods_hodmodel as hodmodel
 import hods_clustering as clustering
@@ -451,8 +452,120 @@ def read_chain_file(inchain_file="chain.default"):
 
 
 def analyse_mcmc(chain_file="chain.default", n_burn=50,
-                 corner_plot_file="corner.default.png", maxlike_values=None):
+                 corner_plot_file="corner.default.png",
+                 perc_intervals=[68.3], maxlike_values=None,
+                 plot_quantiles=True, Verbose=False):
+    """
+    Function to do a basic analysis of a emcee MCMC chain, previously saved
+    in a file, following the format of run_mcmc.
 
-    
-    
+    It will first remove the 'burn in' samples (need to give this as an input),
+    then creates a corner plot showing the distribution of all the parameters
+    stored in the chain.
+
+    Finally, for each parameter it returns the median values and the (2d)
+    size of the confidence intervals of the confidence intervals corresponding
+    to the perc_intervals.
+    By default, these correspond to 1-sigma interval, but several intervals
+    can be obtained at once.
+    These are returned in a dictionary that contains a list of values for each
+    of the parameter in the chain.
+
+    TODO: better description of input parameters and options
+
+    TODO: add option to do analysis only for a subset of the parameters
+
+    TODO: use new options in updated version of 'triangle.py' (e.g. do a proper
+          1- and 2-sigma contour plot)
+
+    TODO: add option to use personalised labels in the plot (e.g. to use
+          more appropriate names including LaTeX for parameters)
+    """
+
+    # First of all, read data from file
+    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+
+    # Now, remove the burn-in period, and drop the 'walker' column we do not
+    # need anymore
+    df_chain = df_chain[n_walkers*n_burn:]
+    df_chain.drop('walker', axis=1, inplace=True)
+
+    # First, define the 'partial percentiles' corresponding to the intervals
+    # we have defined
+    perc_intervals = np.atleast_1d(perc_intervals)
+    n_int = len(perc_intervals)
+    assert (perc_intervals > 0).all()
+    assert (perc_intervals < 100).all()
+    partial_percents = np.empty((n_int, 2), float)
+
+    for i, pi in enumerate(perc_intervals):
+        tail_fract = (100. - pi)/2.
+        partial_percents[i, 0] = tail_fract
+        partial_percents[i, 1] = 100. - tail_fract
+
+    # Use these to decide the quantiles to include in the plot
+    # (if we want to plot them!)
+    if plot_quantiles:
+        quant_plot = np.concatenate((partial_percents.flatten()/100., [0.5]))
+    else:
+        quant_plot = []
+
+    # Create the corner plot, and save it to a file (name given as input)
+    fig = triangle.corner(df_chain, labels=df_chain.columns,
+                          truths=maxlike_values, quantiles=quant_plot,
+                          verbose=False)
+    fig.savefig(corner_plot_file)
+
+    # Now, compute the dictionary containing the characterisation of the
+    # confidence intervals for each of the parameters
+    dict_output = {}
+
+    for param_name in df_chain.columns:
+
+        # First, compute the median
+        med_value = np.median(df_chain[param_name])
+        dict_output[param_name] = [med_value]
+
+        # Now, the lower and upper extents for each of the confidence intervals
+        for p in partial_percents:
+            extrema = np.percentile(df_chain[param_name], p)
+            ci_limits = [med_value - extrema[0], extrema[1] - med_value]
+            dict_output[param_name].append(ci_limits)
+
+    # In the Verbose case, also print out the output
+    if Verbose:
+        print_conf_interval(dict_output, perc_intervals)
+
+    return dict_output
+
+
+def print_conf_interval(ci_dictionary, perc_intervals=None):
+    """
+    Function to print in a 'nice' way the confidence interval(s) computed
+    by function analyse_mcmc.
+    We assume the input dictionary has the format as the output of that
+    function.
+    """
+
+    if perc_intervals is not None:
+        n_int = len(perc_intervals)
+    else:
+        n_int = len(ci_dictionary[ci_dictionary.keys()[0]]) - 1
+
+    print "~~~~~~~~"
+    for param_name in ci_dictionary.keys():
+        print "Parameter: %s" % param_name
+        for i in range(n_int):
+            if perc_intervals is not None:
+                int_string = "%.1f %% interval for parameter: " %\
+                    perc_intervals[i]
+            else:
+                int_string = "Interval for parameter: "
+
+            print int_string + "%.6g (-%.2g, +%.2g)" %\
+                (ci_dictionary[param_name][0],
+                 ci_dictionary[param_name][i+1][0],
+                 ci_dictionary[param_name][i+1][1])
+        print "~~~~~~~~"
+
     return 0
