@@ -15,6 +15,9 @@ Some of these functions are taken/adapted from the emcee tutorials.
 """
 
 import os
+import time
+import sys
+from ConfigParser import ConfigParser
 
 import numpy as np
 import pandas as pd
@@ -22,6 +25,7 @@ from scipy import optimize
 import emcee
 import triangle
 import matplotlib.pyplot as plt
+
 
 import hods_hodmodel as hodmodel
 import hods_clustering as clustering
@@ -270,7 +274,7 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
 
         fracsat_best = \
             hodmodel.fraction_satellites_array(hod_instance=hod_best,
-                                              halo_instance=clustobj.halomodel)
+                                               halo_instance=clustobj.halomodel)
 
         return hod_params_best, (wp_best, galdens_best,
                                  meanhalomass_best, meangalbias_best,
@@ -290,7 +294,7 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
     'init_type':
 
     - init_type=0: distribute initial points uniformly inside parameter limits
-                   (anything fancy, so basically a flat prior on the parameters
+                   (nothing fancy, so basically a flat prior on the parameters
                    considered)
                    parameter limits given by 'param_lims'
     - init_type=1: distribute initial points in a Gaussian 'ball' (ellipsoid?)
@@ -699,5 +703,237 @@ def diagnose_plot_chain(chain_file="chain.default",
 
         ax.grid(True)
         fig.savefig(outfile)
+
+    return 0
+
+
+def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
+    """
+    Function to do the full process to fit a HOD model to wp data. It will
+    basically consists on running the previous functions in order :P
+
+    Will read all the parameters from an .ini file using the ConfigParser.
+
+    TODO: add options as new features are implemented in the rest of functions
+    """
+
+    # First of all, read in the configuration file
+    config = ConfigParser()
+    config.read(paramfile)
+
+    # Define files for different outputs
+    f_config_out = output_prefix + "_config.ini"    # For backup of config
+    f_results_out = output_prefix + "_results.txt"  # For summary of results and log of run
+    f_chain_out = output_prefix + "_chain.dat"   # For MCMC chain
+    f_corner_out = output_prefix + "_corner.png"  # For output corner plot
+    f_diag_prefix = output_prefix + "_diagplot"   # Prefix for 'diagnose' plots
+    f_compplot_out = output_prefix + "_comparedata.png"  # For plot comparing to data
+
+    # Save a backup of the config file
+    with open(f_config_out, 'w') as config_out:
+        config.write(config_out)
+
+    # Write initial basic info. to results file
+    with open(f_results_out, 'w') as res_out:
+        res_out.write("Running the HODfit main function\n")
+        res_out.write("Original configuration file: %s\n" % paramfile)
+        res_out.write("Backup of the configuration saved to %s\n"
+                      % f_config_out)
+        res_out.write("This run started at: " + time.asctime() + "\n")
+        res_out.write("-------------------------------------------\n")
+
+    # Read in data, select the scales we are interested in, etc.
+    infile_wp = config.get('Data', 'wpfile')
+    rp, wp, wperr = np.loadtxt(infile_wp, usecols=range(3), unpack=True)
+    infile_covmat = config.get('Data', 'wp_cov_file')
+    covmatrix = np.loadtxt(infile_covmat)
+
+    intconst = config.getfloat('Data', 'integral_constraint')
+    wp = wp + intconst
+
+    rpmin = config.getfloat('Data', 'rpmin')
+    rpmax = config.getfloat('Data', 'rpmax')
+
+    rpsel, wpsel, wperrsel, covmatsel = select_scales(rpmin, rpmax, rp, wp,
+                                                      wperr, covmatrix)
+    # Invert the covariance matrix (selected)
+    icovmat_sel = np.linalg.inv(covmatsel)
+
+    # Read in the parameters defining the HOD model to fit
+    hod_type = config.getint('HODModel', 'HOD_type')
+    if hod_type == 1:
+        n_dim_model = 3
+        logMmin_init = config.getfloat('HODModel', 'logMmin_init')
+        logM1_init = config.getfloat('HODModel', 'logM1_init')
+        alpha_init = config.getfloat('HODModel', 'alpha_init')
+        hod_param_init = [logMmin_init, logM1_init, alpha_init]
+
+        logMmin_lims = map(float,
+                           config.get('HODModel', 'logMmin_limits').split())
+        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
+        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims
+
+    elif hod_type == 2:
+        n_dim_model = 5
+        logMmin_init = config.getfloat('HODModel', 'logMmin_init')
+        logM1_init = config.getfloat('HODModel', 'logM1_init')
+        alpha_init = config.getfloat('HODModel', 'alpha_init')
+        logM0_init = config.getfloat('HODModel', 'logM0_init')
+        siglogM_init = config.getfloat('HODModel', 'siglogM_init')
+        hod_param_init = [logMmin_init, logM1_init, alpha_init, logM0_init,
+                          siglogM_init]
+
+        logMmin_lims = map(float,
+                           config.get('HODModel', 'logMmin_limits').split())
+        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
+        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+        logM0_lims = map(float, config.get('HODModel', 'logM0_limits').split())
+        siglogM_lims = map(float,
+                           config.get('HODModel', 'siglogM_limits').split())
+        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
+            logM0_lims + siglogM_lims
+
+    else:
+        raise ValueError("Allowed values of HOD_type are 1 or 2")
+
+    # Define the 'HODClustering' object which we use through.
+    # This basically defines the cosmology+halo model+functional form of HOD+
+    # numerical properties of the way in which we integrate over M_halo
+    #
+    # Will use the defaults for many parameters (actual HOD parameters are not
+    # relevant here)
+    redshift = config.getfloat('Cosmology', 'redshift')
+    omega_matter = config.getfloat('Cosmology', 'omega_matter')
+    omega_lambda = config.getfloat('Cosmology', 'omega_lambda')
+    pk_lin_z0_file = config.get('Cosmology', 'pk_linear_z0')
+    pk_matter_z_file = config.get('Cosmology', 'pk_matter_z')
+
+    logMmin = config.getfloat('HaloModelCalc', 'logMmin')
+    logMmax = config.getfloat('HaloModelCalc', 'logMmax')
+    logMstep = config.getfloat('HaloModelCalc', 'logMstep')
+
+    hod_clust =\
+        clustering.hod_from_parameters(redshift=redshift, OmegaM0=omega_matter,
+                                       OmegaL0=omega_lambda,
+                                       powesp_matter_file=pk_matter_z_file,
+                                       powesp_linz0_file=pk_lin_z0_file,
+                                       hod_type=hod_type, logM_min=logMmin,
+                                       logM_max=logMmax, logM_step=logMstep)
+
+    # Read in parameters related to the calculation of wp in the models
+    wpcalc_nr = config.getint('WpCalc', 'nr')
+    wpcalc_npi = config.getint('WpCalc', 'npi')
+    wpcalc_pimin = config.getfloat('WpCalc', 'pimin')
+    wpcalc_pimax = config.getfloat('WpCalc', 'pimax')
+
+    # Now, we start the fun! First, get the best-fit model using Scipy
+    # minimisation methods
+    bestfit_params, bestfit_derived =\
+        find_best_fit(hod_params_start=hod_param_init, rp=rpsel, wp=wpsel,
+                      wp_icov=icovmat_sel, param_lims=hod_param_lims,
+                      return_model=True, clustobj=hod_clust, hod_type=hod_type,
+                      nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
+                      pimax=wpcalc_pimax)
+
+    # Get goodness of fit for this
+    chi2_bestfit = chi2_fullmatrix(data_vals=wpsel, inv_covmat=icovmat_sel,
+                                   model_predictions=bestfit_derived[0])
+    ndof = len(rpsel) - n_dim_model
+
+    # Write results to 'results' file
+    with open(f_results_out, 'a') as res_out:
+        res_out.write("BEST-FIT MODEL:\n")
+        res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
+        res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
+        res_out.write("Number of degrees of freedom, ndof = %d\n" % ndof)
+        res_out.write("Chi^2/ndof = %.3g\n" % (chi2_bestfit/ndof))
+        res_out.write("Derived parameters: \n")
+        res_out.write("  Galaxy density = %.5g\n" % bestfit_derived[1])
+        res_out.write("  Mean halo mass = %.5g\n" % bestfit_derived[2])
+        res_out.write("  Mean galaxy bias = %.5g\n" % bestfit_derived[3])
+        res_out.write("  Satellite fraction = %.5g\n" % bestfit_derived[4])
+        res_out.write("-------------------------------------------\n")
+
+    # Now, do the actual MCMC run to get the sample chain
+    # First, read in relevant parameters and decide on the way to initialise
+    # the walkers
+    n_walkers = config.getint('MCMCcalc', 'number_walkers')
+    n_iterations = config.getint('MCMCcalc', 'number_iterations')
+    n_threads = config.getint('MCMCcalc', 'threads')
+
+    mcmc_init_type = config.getint('MCMCcalc', 'mcmc_init_type')
+
+    if mcmc_init_type == 0:
+        cpos = None
+        ball_size = None
+    elif mcmc_init_type == 1:
+        cpos = bestfit_params
+        ball_size = map(float,
+                        config.get('MCMCcalc', 'mcmc_init_ball').split())
+        assert ball_size == n_dim_model
+
+    else:
+        raise ValueError("Allowed values of mcmc_init_type are 0 or 1")
+
+    # Now, actually run the MCMC
+    run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
+             param_lims=hod_param_lims, clustobj=hod_clust, hod_type=hod_type,
+             nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
+             npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
+             ball_size=ball_size, n_walkers=n_walkers,
+             n_steps_per_walker=n_iterations, n_threads=n_threads,
+             out_chain_file=f_chain_out)
+
+    # Once the MCMC run is finished, do a basic analysis to get constraints
+    # on parameters
+    # Note this will depend on the burn in period we assume, better to play
+    # with this taking into account the actual chain
+    n_burn_in = config.getint('MCMCanalysis', 'burn_in_iterations')
+    ci_percent = map(float,
+                     config.get('MCMCanalysis', 'conf_intervals').split())
+
+    mcmc_analysis_result = analyse_mcmc(chain_file=f_chain_out,
+                                        n_burn=n_burn_in,
+                                        corner_plot_file=f_corner_out,
+                                        perc_intervals=ci_percent,
+                                        maxlike_values=bestfit_params)
+
+    # Write results to 'results' file
+    with open(f_results_out, 'a') as res_out:
+        res_out.write("MCMC SAMPLING OF THE POSTERIOR:\n")
+        res_out.write("Full sample chain written to file %s\n" % f_chain_out)
+
+    # TODO: change print_conf_interval to allow for direct output to file
+    with open(f_results_out, 'a') as sys.stdout:
+        print_conf_interval(ci_dictionary=mcmc_analysis_result,
+                            perc_intervals=ci_percent)
+
+    with open(f_results_out, 'a') as res_out:
+        res_out.write("-------------------------------------------\n")
+
+    # Now, get other plots for assessment of the results
+    nsamples_comp = config.getint('MCMCanalysis', 'n_samp_comparison_plot')
+    compare_mcmc_data(rp=rpsel, wp=wpsel, wperr=wperrsel,
+                      n_samples_plot=nsamples_comp, chain_file=f_chain_out,
+                      plot_file=f_compplot_out, n_burn=n_burn_in,
+                      maxlike_values=bestfit_params, rp_ext=rp, wp_ext=wp,
+                      wperr_ext=wperr, clustobj=hod_clust, hod_type=hod_type,
+                      nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
+                      npi=wpcalc_npi)
+
+    diagnose_plot_chain(chain_file=f_chain_out, diag_plot_prefix=f_diag_prefix,
+                        n_burn=n_burn_in, maxlike_values=bestfit_params)
+
+    # Write final blob to results file
+    with open(f_results_out, 'a') as res_out:
+        res_out.write("Corner plot for the posterior distribution of "
+                      "the parameters saved to %s\n" % f_corner_out)
+        res_out.write("Plot comparing samples to data saved to %s\n"
+                      % f_compplot_out)
+        res_out.write("Plots showing the evolution of the chains drawn "
+                      "to files starting by %s\n" % f_diag_prefix)
+        res_out.write("-------------------------------------------\n")
+        res_out.write("This run finished at: " + time.asctime() + "\n")
 
     return 0
