@@ -261,7 +261,14 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
     if return_model:
         wp_best = wp_hod(rp, hod_params_best, clustobj, hod_type, nr,
                          pimin, pimax, npi)
+        # Define HOD object for the best fit, and initialise the mass
+        # array using the clustobj mass array.
+        # TODO: can we refactor to avoid this? Do we really need a mass 
+        #       array associated to an HOD object?
         hod_best = get_hod_from_params(hod_params_best, hod_type)
+        hod_best.set_mass_arrays(logM_min=clustobj.logM_min,
+                                 logM_max=clustobj.logM_max,
+                                 logM_step=clustobj.logM_step)
         galdens_best = \
             hodmodel.dens_galaxies_arrays(hod_instance=hod_best,
                                           halo_instance=clustobj.halomodel)
