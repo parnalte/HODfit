@@ -652,3 +652,52 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
     fig.savefig(plot_file)
 
     return 0
+
+
+def diagnose_plot_chain(chain_file="chain.default",
+                        diag_plot_prefix="diagnosechain",
+                        n_burn=None, maxlike_values=None):
+    """
+    Create a 'diagnose plot' showing the evolution of the chain for all
+    the walkers for each of the parameters. This is useful, e.g. to decide
+    on the number of burn-in steps we want to cut out for later analysis.
+
+    TODO: add option to use personalised labels in the plot (e.g. to use
+          more appropriate names including LaTeX for parameters)
+    """
+
+    # First, read in the chain samples from the file
+    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+
+    # Group by walker, as we want to plot the evolution of each walker
+    # individually
+    df_chain_group = df_chain.groupby('walker')
+
+    # Get list of parameters to consider
+    param_list = df_chain.columns
+    param_list = param_list.drop('walker')
+
+    # And now, do the plot for each of the parameters in the chain
+    for j, parameter in enumerate(param_list):
+        outfile = diag_plot_prefix + "." + parameter + ".png"
+
+        fig, ax = plt.subplots()
+
+        for i in range(n_walkers):
+            walker = df_chain_group.get_group(i)
+            ax.plot(walker[parameter], 'k-', lw=0.5, alpha=0.2)
+        ax.set_xlabel("Step")
+        ax.set_ylabel(parameter)
+
+        if maxlike_values is not None:
+            ax.hlines(maxlike_values[j], 0, n_iter, lw=2, color='blue')
+
+        if n_burn is not None:
+            ymin, ymax = ax.get_ylim()
+            ax.vlines(n_burn, ymin, ymax, lw=2, linestyles='dashed',
+                      color='red')
+
+        ax.grid(True)
+        fig.savefig(outfile)
+
+    return 0
