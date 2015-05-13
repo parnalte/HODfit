@@ -487,9 +487,6 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
 
     TODO: add option to do analysis only for a subset of the parameters
 
-    TODO: use new options in updated version of 'triangle.py' (e.g. do a proper
-          1- and 2-sigma contour plot)
-
     TODO: add option to use personalised labels in the plot (e.g. to use
           more appropriate names including LaTeX for parameters)
     """
@@ -523,9 +520,18 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
         quant_plot = []
 
     # Create the corner plot, and save it to a file (name given as input)
-    fig = triangle.corner(df_chain, labels=df_chain.columns,
-                          truths=maxlike_values, quantiles=quant_plot,
-                          verbose=False)
+    # Do a fancier plot (1-sigma and 2-sigma contours, etc.) if version
+    # of triangle module >=0.2.0
+    tri_vers = map(int, triangle.__version__.split('.'))
+    if tri_vers[0] > 0 or tri_vers[1] >= 2:
+        fig = triangle.corner(df_chain, truths=maxlike_values,
+                              quantiles=quant_plot, verbose=False,
+                              fill_contours=True, show_titles=True,
+                              plot_datapoints=True, levels=perc_intervals/100.)
+    else:
+        fig = triangle.corner(df_chain, labels=df_chain.columns,
+                              truths=maxlike_values, quantiles=quant_plot,
+                              verbose=False)
     fig.savefig(corner_plot_file)
 
     # Now, compute the dictionary containing the characterisation of the
