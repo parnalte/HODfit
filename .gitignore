@@ -10,4 +10,7 @@
 *.rel
 .spyder*
 *.png
+test*chain.dat
+test*config.ini
+test*results.txt
 
