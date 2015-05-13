@@ -13,4 +13,8 @@
 test*chain.dat
 test*config.ini
 test*results.txt
+default*chain.dat
+default*config.ini
+default*results.txt
+
 
