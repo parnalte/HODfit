@@ -140,7 +140,9 @@ def lnprior_flat(hod_params, param_lims, hod_type=1):
 
 def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
                             hod_type=1, nr=100, pimin=0.001, pimax=400,
-                            npi=100):
+                            npi=100, fit_density=0, data_dens=None,
+                            data_dens_err=None, data_logdens=None,
+                            data_logdens_err=None):
     """
     Computes the (un-normalised) log-likelihood of the data wp(rp) given
     its inverse covariance matrix, and the given values of the HOD parameters.
@@ -152,15 +154,40 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
     use the full covariances.
 
     We allow the use of different HOD parameterisations using the 'hod_type'
-    parameter (same options as in HODModel class)
+    parameter (same options as in HODModel class).
+
+    We allow also for the inclusion of the galaxy density as part of the
+    likelihood computation. The way in which this is done is controlled by
+    the fit_density parameter:
+        - fit_density = 0: Do not use galaxy density in the computation
+        - fit_density = 1: Include gal. density in the computation, assuming
+            a Gaussian distribution in density. Need to include parameters
+            data_dens and data_dens_err
+        - fit_density = 2: Include gal. density in the computation, assuming
+            a Gaussin distribution in *log(density)*. Need to include
+            parameters data_logdens and data_logdens_err
     """
 
-    wp_model, gal_dens = wp_hod(rp=rp, hod_params=hod_params,
-                                clustobj=clustobj, hod_type=hod_type, nr=nr,
-                                pimin=pimin, pimax=pimax, npi=npi)
+    wp_model, model_gal_dens = wp_hod(rp=rp, hod_params=hod_params,
+                                      clustobj=clustobj, hod_type=hod_type,
+                                      nr=nr, pimin=pimin, pimax=pimax, npi=npi)
 
-    return -0.5*chi2_fullmatrix(data_vals=wp, inv_covmat=wp_icov,
-                                model_predictions=wp_model)
+    if fit_density == 0:
+        chi2_density = 0
+
+    elif fit_density == 1:
+        chi2_density = pow((model_gal_dens-data_dens) / data_dens_err, 2)
+
+    elif fit_density == 2:
+        model_logdens = np.log10(model_gal_dens)
+        chi2_density = pow((model_logdens-data_logdens) / data_logdens_err, 2)
+
+    else:
+        raise ValueError("Allowed values of fit_density are 0, 1, 2")
+
+    return -0.5*(chi2_fullmatrix(
+        data_vals=wp, inv_covmat=wp_icov, model_predictions=wp_model) +
+        chi2_density)
 
 
 def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
