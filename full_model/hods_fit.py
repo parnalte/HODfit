@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 """
 hods_fit.py --- Functions/classes related to fitting the HOD models to data
 
@@ -944,3 +944,11 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         res_out.write("This run finished at: " + time.asctime() + "\n")
 
     return 0
+
+
+# If running the script from command line, run the main function!
+if __name__ == "__main__":
+
+    main(*sys.argv[1:])
+
+    sys.exit(0)
