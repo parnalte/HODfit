@@ -388,15 +388,13 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
              nr=100, pimin=0.001, pimax=400, npi=100,
              init_type=0, cent_pos=None, ball_size=None,
              n_walkers=100, n_steps_per_walker=100, n_threads=1,
-             out_chain_file="chain.default"):
+             out_chain_file="chain.default", fit_density=0, data_dens=None,
+             data_dens_err=None, data_logdens=None, data_logdens_err=None):
     """
     Function to run the basic MCMC from emcee given the data, and the
     parameters defining the model.
 
     TODO: description of input parameters and options
-
-    TODO: implement (including auxiliar functions) the option of taking into
-          account the number density of the sample in the fit
 
     TODO: implement option to return also derived quantities for each sample
           in the chain
@@ -442,7 +440,9 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
         emcee.EnsembleSampler(nwalkers=n_walkers, dim=n_dimensions,
                               lnpostfn=lnposterior, threads=n_threads,
                               args=(rp, wp, wp_icov, param_lims, clustobj,
-                                    hod_type, nr, pimin, pimax, npi))
+                                    hod_type, nr, pimin, pimax, npi,
+                                    fit_density, data_dens, data_dens_err,
+                                    data_logdens, data_logdens_err))
 
     # And iterate the sampler, writing each of the samples to the output
     # chain file
