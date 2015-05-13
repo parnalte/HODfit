@@ -263,7 +263,7 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
                          pimin, pimax, npi)
         # Define HOD object for the best fit, and initialise the mass
         # array using the clustobj mass array.
-        # TODO: can we refactor to avoid this? Do we really need a mass 
+        # TODO: can we refactor to avoid this? Do we really need a mass
         #       array associated to an HOD object?
         hod_best = get_hod_from_params(hod_params_best, hod_type)
         hod_best.set_mass_arrays(logM_min=clustobj.logM_min,
