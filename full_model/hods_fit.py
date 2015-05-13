@@ -910,7 +910,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     chi2_bestfit = chi2_fullmatrix(data_vals=wpsel, inv_covmat=icovmat_sel,
                                    model_predictions=bestfit_derived[0])
     ndof = len(rpsel) - n_dim_model
-    
+
     # Add part coming from galaxy density, if needed
     if fit_density == 1:
         chi2_dens = pow((bestfit_derived[1]-data_dens) / data_dens_err, 2)
@@ -921,7 +921,6 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         chi2_dens = pow((model_logdens-data_logdens) / data_logdens_err, 2)
         chi2_bestfit += chi2_dens
         ndof += 1
-
 
     # Write results to 'results' file
     with open(f_results_out, 'a') as res_out:
@@ -965,7 +964,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
              npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
              ball_size=ball_size, n_walkers=n_walkers,
              n_steps_per_walker=n_iterations, n_threads=n_threads,
-             out_chain_file=f_chain_out)
+             out_chain_file=f_chain_out, fit_density=fit_density,
+             data_dens=data_dens, data_dens_err=data_dens_err,
+             data_logdens=data_logdens, data_logdens_err=data_logdens_err)
 
     # Once the MCMC run is finished, do a basic analysis to get constraints
     # on parameters
@@ -978,9 +979,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     mcmc_analysis_result = analyse_mcmc(
         chain_file=f_chain_out, n_burn=n_burn_in,
         corner_plot_file=f_corner_out, perc_intervals=ci_percent,
-        maxlike_values=bestfit_params, fit_density=fit_density,
-        data_dens=data_dens, data_dens_err=data_dens_err,
-        data_logdens=data_logdens, data_logdens_err=data_logdens_err)
+        maxlike_values=bestfit_params)
 
     # Write results to 'results' file
     with open(f_results_out, 'a') as res_out:
