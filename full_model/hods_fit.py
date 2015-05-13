@@ -191,7 +191,9 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
 
 
 def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
-                hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
+                hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100,
+                fit_density=0, data_dens=None, data_dens_err=None,
+                data_logdens=None, data_logdens_err=None):
     """
     Computes the (un-normalised) log(P) of the posterior PDF of the HOD
     parameters given the wp(rp) data.
@@ -211,7 +213,9 @@ def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
     else:
         return lp + lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov,
                                             clustobj, hod_type, nr, pimin,
-                                            pimax, npi)
+                                            pimax, npi, fit_density, data_dens,
+                                            data_dens_err, data_logdens,
+                                            data_logdens_err)
 
 
 def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
