@@ -255,7 +255,9 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
 
 def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
                   return_model=False, minim_method='Powell', clustobj=None,
-                  hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100):
+                  hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100,
+                  fit_density=0, data_dens=None, data_dens_err=None,
+                  data_logdens=None, data_logdens_err=None):
     """
     Function to obtain the best-fit values of the HOD parameters, obtaining
     the maximum of the posterior function (equivalent to the maximum
@@ -282,7 +284,9 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
     maxpost_result = \
         optimize.minimize(fun=neglogposterior, x0=hod_params_start,
                           args=(rp, wp, wp_icov, param_lims, clustobj,
-                                hod_type, nr, pimin, pimax, npi),
+                                hod_type, nr, pimin, pimax, npi, fit_density,
+                                data_dens, data_dens_err, data_logdens,
+                                data_logdens_err),
                           method=minim_method)
 
     # Actually print the results
