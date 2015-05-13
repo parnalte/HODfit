@@ -808,6 +808,24 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Invert the covariance matrix (selected)
     icovmat_sel = np.linalg.inv(covmatsel)
 
+    # Read in options and data related to galaxy density
+    fit_density = config.getint('DataDens', 'use_gal_dens')
+    data_dens = None
+    data_dens_err = None
+    data_logdens = None
+    data_logdens_err = None
+
+    if fit_density == 0:
+        pass
+    elif fit_density == 1:
+        data_dens = config.getfloat('DataDens', 'gal_dens')
+        data_dens_err = config.getfloat('DataDens', 'gal_dens_error')
+    elif fit_density == 2:
+        data_logdens = config.getfloat('DataDens', 'gal_logdens')
+        data_logdens_err = config.getfloat('DataDens', 'gal_logdens_error')
+    else:
+        raise ValueError("Allowed values of use_gal_dens are 0, 1 or 2")
+
     # Read in the parameters defining the HOD model to fit
     hod_type = config.getint('HODModel', 'HOD_type')
     if hod_type == 1:
@@ -883,12 +901,27 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                       wp_icov=icovmat_sel, param_lims=hod_param_lims,
                       return_model=True, clustobj=hod_clust, hod_type=hod_type,
                       nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
-                      pimax=wpcalc_pimax)
+                      pimax=wpcalc_pimax, fit_density=fit_density,
+                      data_dens=data_dens, data_dens_err=data_dens_err,
+                      data_logdens=data_logdens,
+                      data_logdens_err=data_logdens_err)
 
     # Get goodness of fit for this
     chi2_bestfit = chi2_fullmatrix(data_vals=wpsel, inv_covmat=icovmat_sel,
                                    model_predictions=bestfit_derived[0])
     ndof = len(rpsel) - n_dim_model
+    
+    # Add part coming from galaxy density, if needed
+    if fit_density == 1:
+        chi2_dens = pow((bestfit_derived[1]-data_dens) / data_dens_err, 2)
+        chi2_bestfit += chi2_dens
+        ndof += 1
+    elif fit_density == 2:
+        model_logdens = np.log10(bestfit_derived[1])
+        chi2_dens = pow((model_logdens-data_logdens) / data_logdens_err, 2)
+        chi2_bestfit += chi2_dens
+        ndof += 1
+
 
     # Write results to 'results' file
     with open(f_results_out, 'a') as res_out:
@@ -942,11 +975,12 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     ci_percent = map(float,
                      config.get('MCMCanalysis', 'conf_intervals').split())
 
-    mcmc_analysis_result = analyse_mcmc(chain_file=f_chain_out,
-                                        n_burn=n_burn_in,
-                                        corner_plot_file=f_corner_out,
-                                        perc_intervals=ci_percent,
-                                        maxlike_values=bestfit_params)
+    mcmc_analysis_result = analyse_mcmc(
+        chain_file=f_chain_out, n_burn=n_burn_in,
+        corner_plot_file=f_corner_out, perc_intervals=ci_percent,
+        maxlike_values=bestfit_params, fit_density=fit_density,
+        data_dens=data_dens, data_dens_err=data_dens_err,
+        data_logdens=data_logdens, data_logdens_err=data_logdens_err)
 
     # Write results to 'results' file
     with open(f_results_out, 'a') as res_out:
