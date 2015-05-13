@@ -65,7 +65,10 @@ def wp_hod(rp, hod_params, clustobj=None, hod_type=1, nr=100, pimin=0.001,
     Mass parameters in HOD are assumed to be given as log10(M_x).
 
     We allow the use of different HOD parameterisations using the 'hod_type'
-    parameter (same options as in HODModel class)
+    parameter (same options as in HODModel class).
+
+    Together with the wp, we also return the galaxy density for this model,
+    so that it can be also used for the likelihood.
     """
 
     # First, define the new HOD given the parameters
@@ -75,8 +78,9 @@ def wp_hod(rp, hod_params, clustobj=None, hod_type=1, nr=100, pimin=0.001,
     clustobj.update_hod(new_hod)
 
     # And compute the wp values (use default values for the details)
-    return clustering.get_wptotal(rpvals=rp, clustering_object=clustobj,
-                                  nr=nr, pimin=pimin, pimax=pimax, npi=npi)
+    return clustering.get_wptotal(
+        rpvals=rp, clustering_object=clustobj, nr=nr, pimin=pimin,
+        pimax=pimax, npi=npi), clustobj.gal_dens
 
 
 def chi2_fullmatrix(data_vals, inv_covmat, model_predictions):
@@ -151,9 +155,9 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
     parameter (same options as in HODModel class)
     """
 
-    wp_model = wp_hod(rp=rp, hod_params=hod_params, clustobj=clustobj,
-                      hod_type=hod_type, nr=nr, pimin=pimin, pimax=pimax,
-                      npi=npi)
+    wp_model, gal_dens = wp_hod(rp=rp, hod_params=hod_params,
+                                clustobj=clustobj, hod_type=hod_type, nr=nr,
+                                pimin=pimin, pimax=pimax, npi=npi)
 
     return -0.5*chi2_fullmatrix(data_vals=wp, inv_covmat=wp_icov,
                                 model_predictions=wp_model)
@@ -259,8 +263,8 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
 
     # Now, if needed, get other results for this model
     if return_model:
-        wp_best = wp_hod(rp, hod_params_best, clustobj, hod_type, nr,
-                         pimin, pimax, npi)
+        wp_best, galdens_best = wp_hod(rp, hod_params_best, clustobj, hod_type,
+                                       nr, pimin, pimax, npi)
         # Define HOD object for the best fit, and initialise the mass
         # array using the clustobj mass array.
         # TODO: can we refactor to avoid this? Do we really need a mass
@@ -269,9 +273,6 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
         hod_best.set_mass_arrays(logM_min=clustobj.logM_min,
                                  logM_max=clustobj.logM_max,
                                  logM_step=clustobj.logM_step)
-        galdens_best = \
-            hodmodel.dens_galaxies_arrays(hod_instance=hod_best,
-                                          halo_instance=clustobj.halomodel)
         meanhalomass_best = \
             hodmodel.mean_halo_mass_hod_array(hod_instance=hod_best,
                                               halo_instance=clustobj.halomodel)
@@ -637,7 +638,7 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
         ax.plot(rp_models,
                 wp_hod(rp=rp_models, hod_params=params, clustobj=clustobj,
                        hod_type=hod_type, nr=nr, pimin=pimin, pimax=pimax,
-                       npi=npi),
+                       npi=npi)[0],
                 color='k', alpha=0.1)
 
     # Now, if given, plot the maximum-likelihood model
@@ -645,7 +646,7 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
         ax.plot(rp_models,
                 wp_hod(rp=rp_models, hod_params=maxlike_values,
                        clustobj=clustobj, hod_type=hod_type, nr=nr,
-                       pimin=pimin, pimax=pimax, npi=npi),
+                       pimin=pimin, pimax=pimax, npi=npi)[0],
                 'b-', lw=2, label='Best fit')
 
     # If present, plot 'extended data'
