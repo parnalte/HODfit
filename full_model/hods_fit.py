@@ -805,6 +805,12 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     rpsel, wpsel, wperrsel, covmatsel = select_scales(rpmin, rpmax, rp, wp,
                                                       wperr, covmatrix)
+
+    # Decide whether to use the full matrix or just the diagonal
+    use_full_matrix = config.getboolean('Data', 'use_full_covmatrix')
+    if not use_full_matrix:
+        covmatsel = np.diag(covmatsel.diagonal())
+
     # Invert the covariance matrix (selected)
     icovmat_sel = np.linalg.inv(covmatsel)
 
