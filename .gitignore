@@ -16,5 +16,6 @@ test*results.txt
 default*chain.dat
 default*config.ini
 default*results.txt
+/*.egg-info
 
 
