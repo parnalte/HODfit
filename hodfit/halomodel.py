@@ -29,7 +29,8 @@ import numpy as np
 import astropy.cosmology as ac
 from scipy import integrate
 from scipy import misc
-from hods_utils import RHO_CRIT_UNITS
+
+from .utils import RHO_CRIT_UNITS
 
 
 def delta_c_z(redshift=0, cosmo=ac.WMAP7):

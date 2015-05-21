@@ -16,8 +16,9 @@ Coupon et al., 2012 (C2012) and Cooray and Sheth, 2002 (CS02).
 import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
-import hods_halomodel as hm
-from hods_utils import RHO_CRIT_UNITS
+
+from . import halomodel
+from .utils import RHO_CRIT_UNITS
 
 
 def Delta_vir(redshift=0, cosmo=ac.WMAP7):
@@ -82,10 +83,10 @@ def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min=10.0,
     mass_array = 10**np.arange(logM_min, logM_max, logM_step)
 
     # sigma_mass() already works well with input mass arrays
-    sigma_array = hm.sigma_mass(mass=mass_array, cosmo=cosmo,
+    sigma_array = halomodel.sigma_mass(mass=mass_array, cosmo=cosmo,
                                 powesp_lin_0=powesp_lin_0)
 
-    delta_c0 = hm.delta_c_z(redshift=0, cosmo=cosmo)
+    delta_c0 = halomodel.delta_c_z(redshift=0, cosmo=cosmo)
 
     # We want to compute the function M(sigma) at the point sigma=delta_c0
     # First, need to sort the 'x' array, in this case sigma
