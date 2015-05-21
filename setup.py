@@ -23,4 +23,5 @@ setup(name='hodfit',
       author_email='pablo.arnalte@uv.es',
       license='BSD',
       packages=['hodfit'],
+      scripts=['bin/hodfit-full'],
       zip_safe=False)

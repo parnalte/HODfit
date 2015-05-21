@@ -1,0 +1,16 @@
+#/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Script to serve as command-line entry point to hodfit
+
+
+Created on Thu May 21 16:29:21 2015
+
+@author: pablo
+"""
+
+import sys
+
+from hodfit.fit import main
+
+main(*sys.argv[1:])
