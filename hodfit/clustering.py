@@ -20,10 +20,10 @@ import astropy.cosmology as ac
 import hankel
 from scipy import integrate
 
-from . import halomodel
-from . import hodmodel
-from . import densprofile
-from .utils import PowerSpectrum, xir2wp_pi, nostdout
+import halomodel
+import hodmodel
+import densprofile
+from utils import PowerSpectrum, xir2wp_pi, nostdout
 
 
 ################################

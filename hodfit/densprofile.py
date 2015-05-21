@@ -17,8 +17,8 @@ import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
 
-from . import halomodel
-from .utils import RHO_CRIT_UNITS
+import halomodel
+from utils import RHO_CRIT_UNITS
 
 
 def Delta_vir(redshift=0, cosmo=ac.WMAP7):

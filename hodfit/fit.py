@@ -27,8 +27,8 @@ import triangle
 import matplotlib.pyplot as plt
 
 
-from . import hodmodel
-from . import clustering
+import hodmodel
+import clustering
 
 
 def get_hod_from_params(hod_params, hod_type=1):
