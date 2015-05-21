@@ -5,6 +5,12 @@ Basis taken from http://www.scotttorborg.com/python-packaging/minimal.html
 
 Created on Thu May 21 15:57:59 2015
 @author: pablo
+
+TODO:
+    - Add dependencies
+    - Add docs
+    - Add tests
+    
 """
 
 from setuptools import setup
