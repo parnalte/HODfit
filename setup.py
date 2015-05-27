@@ -7,7 +7,6 @@ Created on Thu May 21 15:57:59 2015
 @author: pablo
 
 TODO:
-    - Add dependencies
     - Add docs
     - Add tests
 """
@@ -25,5 +24,5 @@ setup(name='hodfit',
       scripts=['bin/hodfit-full'],
       install_requires=['numpy', 'pandas', 'scipy', 'matplotlib', 'emcee',
                         'astropy', 'hankel'],
-      include_package_data=True,  
+      include_package_data=True,
       zip_safe=False)
