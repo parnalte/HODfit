@@ -958,7 +958,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         cpos = bestfit_params
         ball_size = map(float,
                         config.get('MCMCcalc', 'mcmc_init_ball').split())
-        assert ball_size == n_dim_model
+        assert len(ball_size) == n_dim_model
 
     else:
         raise ValueError("Allowed values of mcmc_init_type are 0 or 1")
