@@ -25,4 +25,5 @@ setup(name='hodfit',
       scripts=['bin/hodfit-full'],
       install_requires=['numpy', 'pandas', 'scipy', 'matplotlib', 'emcee',
                         'astropy', 'hankel'],
+      include_package_data=True,  
       zip_safe=False)
