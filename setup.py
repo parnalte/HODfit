@@ -10,7 +10,6 @@ TODO:
     - Add dependencies
     - Add docs
     - Add tests
-    
 """
 
 from setuptools import setup
@@ -24,4 +23,6 @@ setup(name='hodfit',
       license='BSD',
       packages=['hodfit'],
       scripts=['bin/hodfit-full'],
+      install_requires=['numpy', 'pandas', 'scipy', 'matplotlib', 'emcee',
+                        'astropy', 'hankel'],
       zip_safe=False)
