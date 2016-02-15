@@ -251,6 +251,10 @@ def dens_galaxies_romb(hod_instance=None, halo_instance=None, logM_min=10.0,
     assert logM_max > logM_min
     assert reltol > 0
 
+    if 10**(logM_min) > hod_instance.mass_min:
+        raise UserWarning("In function 'dens_galaxies_romb': "
+                          "not using all the mass range allowed by HOD!")
+
     def integrand(x):
         return np.log(10)*(10**x)*hod_instance.n_total(mass=10**x) * \
             halo_instance.ndens_diff_m(mass=10**x)
