@@ -232,6 +232,35 @@ def dens_galaxies_quad(hod_instance=None, halo_instance=None, logM_min=10.0,
     return integ_result[0]
 
 
+def dens_galaxies_romb(hod_instance=None, halo_instance=None, logM_min=10.0,
+                       logM_max=16.0, reltol=1e-5):
+    """
+    Computes the mean galaxy number density according to the combination of a
+    halo distribution model and an HOD model.
+    Following eq. (14) in C2012.
+
+    hod_instance: an instance of the HODModel class
+    halo_instance: an instance of the hm.HaloModelMW02 class
+
+    Use Romberg integration (from Scipy), to the relative tolerance set
+    by the parameter 'reltol'.
+    We do a change of variable to integrate over x=log10(M).
+    """
+
+    assert logM_min > 0
+    assert logM_max > logM_min
+    assert reltol > 0
+
+    def integrand(x):
+        return np.log(10)*(10**x)*hod_instance.n_total(mass=10**x) * \
+            halo_instance.ndens_diff_m(mass=10**x)
+
+    integ_result = integrate.romberg(integrand, a=logM_min, b=logM_max,
+                                     tol=0, rtol=reltol, vec_func=True)
+
+    return integ_result[0]
+
+
 def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min=10.0,
                   logM_max=16.0, logM_step=0.05):
     """Computes the mean galaxy bias according to the combination
