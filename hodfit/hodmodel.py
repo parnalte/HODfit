@@ -321,6 +321,43 @@ def bias_gal_mean_array(hod_instance=None, halo_instance=None):
     return bias_integ/gal_dens
 
 
+def bias_gal_mean_romb(hod_instance=None, halo_instance=None, logM_min=10.0,
+                       logM_max=16.0, reltol=1e-5):
+    """
+    Computes the mean galaxy bias according to the combination
+    of a halo distribution model and an HOD model.
+    Following eq. (13) in C2012.
+
+    hod_instance: an instance of the HODModel class
+    halo_instance: an instance of the hm.HaloModelMW02 class
+
+    Use Romberg integration (from Scipy), to the relative tolerance set
+    by the parameter 'reltol'.
+    We do a change of variable to integrate over x=log10(M).
+    """
+
+    assert logM_min > 0
+    assert logM_max > logM_min
+    assert reltol > 0
+
+    if 10**(logM_min) > hod_instance.mass_min:
+        raise UserWarning("In function 'dens_galaxies_romb': "
+                          "not using all the mass range allowed by HOD!")
+
+    def integrand(x):
+        return np.log(10)*(10**x)*hod_instance.n_total(mass=10**x) * \
+            halo_instance.ndens_diff_m(mass=10**x) * \
+            halo_instance.bias_fmass(mass=10**x)
+
+    dens_gal_tot = dens_galaxies_romb(hod_instance, halo_instance, logM_min,
+                                      logM_max, reltol)
+
+    integ_result = integrate.romberg(integrand, a=logM_min, b=logM_max, tol=0,
+                                     rtol=reltol, vec_func=True)
+
+    return integ_result[0]/dens_gal_tot
+
+
 def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min=10.0,
                        logM_max=16.0, logM_step=0.05):
     """Computes the HOD-averaged mean halo mass according to the combination
@@ -373,6 +410,42 @@ def mean_halo_mass_hod_array(hod_instance=None, halo_instance=None):
     gal_dens = dens_galaxies_arrays(hod_instance, halo_instance)
 
     return mass_integ/gal_dens
+
+
+def mean_halo_mass_hod_romb(hod_instance=None, halo_instance=None,
+                            logM_min=10.0, logM_max=16.0, reltol=1e-5):
+    """
+    Computes the HOD-averaged mean halo mass according to the combination
+    of a halo distribution model and an HOD model.
+    Following eq. (13) in C2012.
+
+    hod_instance: an instance of the HODModel class
+    halo_instance: an instance of the hm.HaloModelMW02 class
+
+    Use Romberg integration (from Scipy), to the relative tolerance set
+    by the parameter 'reltol'.
+    We do a change of variable to integrate over x=log10(M).
+    """
+
+    assert logM_min > 0
+    assert logM_max > logM_min
+    assert reltol > 0
+
+    if 10**(logM_min) > hod_instance.mass_min:
+        raise UserWarning("In function 'dens_galaxies_romb': "
+                          "not using all the mass range allowed by HOD!")
+
+    def integrand(x):
+        return np.log(10)*(10**(2*x))*hod_instance.n_total(mass=10**x) * \
+            halo_instance.ndens_diff_m(mass=10**x)
+
+    dens_gal_tot = dens_galaxies_romb(hod_instance, halo_instance, logM_min,
+                                      logM_max, reltol)
+
+    integ_result = integrate.romberg(integrand, a=logM_min, b=logM_max, tol=0,
+                                     rtol=reltol, vec_func=True)
+
+    return integ_result[0]/dens_gal_tot
 
 
 def fraction_centrals(hod_instance=None, halo_instance=None, logM_min=10.0,
@@ -429,6 +502,42 @@ def fraction_centrals_array(hod_instance=None, halo_instance=None):
     return centrals_dens/gal_dens
 
 
+def fraction_centrals_romb(hod_instance=None, halo_instance=None,
+                           logM_min=10.0, logM_max=16.0, reltol=1e-5):
+    """
+    Computes the fraction of central galaxies per halo according to the
+    combination of a halo distribution model and an HOD model.
+    Following eq. (13) in C2012.
+
+    hod_instance: an instance of the HODModel class
+    halo_instance: an instance of the hm.HaloModelMW02 class
+
+    Use Romberg integration (from Scipy), to the relative tolerance set
+    by the parameter 'reltol'.
+    We do a change of variable to integrate over x=log10(M).
+    """
+
+    assert logM_min > 0
+    assert logM_max > logM_min
+    assert reltol > 0
+
+    if 10**(logM_min) > hod_instance.mass_min:
+        raise UserWarning("In function 'dens_galaxies_romb': "
+                          "not using all the mass range allowed by HOD!")
+
+    def integrand(x):
+        return np.log(10)*(10**x)*hod_instance.n_centrals(mass=10**x) * \
+            halo_instance.ndens_diff_m(mass=10**x)
+
+    dens_gal_tot = dens_galaxies_romb(hod_instance, halo_instance, logM_min,
+                                      logM_max, reltol)
+
+    integ_result = integrate.romberg(integrand, a=logM_min, b=logM_max, tol=0,
+                                     rtol=reltol, vec_func=True)
+
+    return integ_result[0]/dens_gal_tot
+
+
 def fraction_satellites(hod_instance=None, halo_instance=None, logM_min=10.0,
                         logM_max=16.0, logM_step=0.05):
     """
@@ -456,4 +565,24 @@ def fraction_satellites_array(hod_instance=None, halo_instance=None):
 
     f_cent = fraction_centrals_array(hod_instance, halo_instance)
 
+    return 1.0 - f_cent
+
+
+def fraction_satellites_romb(hod_instance=None, halo_instance=None,
+                             logM_min=10.0, logM_max=16.0, reltol=1e-5):
+    """
+    Computes the fraction of satellites per halo according to the
+    combination of a halo distribution model and an HOD model.
+    Following eq. (13) in C2012.
+
+    hod_instance: an instance of the HODModel class
+    halo_instance: an instance of the hm.HaloModelMW02 class
+
+    Uses Romberg integration.
+    """
+
+    f_cent = fraction_centrals_romb(hod_instance=hod_instance,
+                                    halo_instance=halo_instance,
+                                    logM_min=logM_min, logM_max=logM_max,
+                                    reltol=reltol)
     return 1.0 - f_cent
