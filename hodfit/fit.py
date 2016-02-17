@@ -309,15 +309,24 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
                                  logM_max=clustobj.logM_max,
                                  logM_step=clustobj.logM_step)
         meanhalomass_best = \
-            hodmodel.mean_halo_mass_hod_array(hod_instance=hod_best,
-                                              halo_instance=clustobj.halomodel)
+            hodmodel.mean_halo_mass_hod(hod_instance=hod_best,
+                                        halo_instance=clustobj.halomodel,
+                                        logM_min=clustobj.logM_min,
+                                        logM_max=clustobj.logM_max,
+                                        reltol=clustobj.massint_reltol)
         meangalbias_best = \
-            hodmodel.bias_gal_mean_array(hod_instance=hod_best,
-                                         halo_instance=clustobj.halomodel)
+            hodmodel.bias_gal_mean(hod_instance=hod_best,
+                                   halo_instance=clustobj.halomodel,
+                                   logM_min=clustobj.logM_min,
+                                   logM_max=clustobj.logM_max,
+                                   reltol=clustobj.massint_reltol)
 
         fracsat_best = \
-            hodmodel.fraction_satellites_array(hod_instance=hod_best,
-                                               halo_instance=clustobj.halomodel)
+            hodmodel.fraction_satellites(hod_instance=hod_best,
+                                         halo_instance=clustobj.halomodel,
+                                         logM_min=clustobj.logM_min,
+                                         logM_max=clustobj.logM_max,
+                                         reltol=clustobj.massint_reltol)
 
         return hod_params_best, (wp_best, galdens_best,
                                  meanhalomass_best, meangalbias_best,

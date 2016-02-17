@@ -162,7 +162,8 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
 
 
 def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
-                      halo_instance=None, logM_min=10.0, logM_step=0.05):
+                      halo_instance=None, logM_min=10.0, logM_step=0.05,
+                      reltol=1e-5):
     """
     Computes the upper mass integration limit and the modified galaxy
     density (nprime) needed to implement the Zheng (2004) model for the
@@ -185,9 +186,10 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
     for i, mlim in enumerate(mass_lim):
         n_prime_array[i] = \
-            hodmodel.dens_galaxies_arrays(hod_instance=hod_instance,
-                                          halo_instance=halo_instance,
-                                          mass_limit=mlim)
+            hodmodel.dens_galaxies(hod_instance=hod_instance,
+                                   halo_instance=halo_instance,
+                                   logM_min=logM_min,
+                                   logM_max=np.log10(mass_lim), reltol=reltol)
 
     return mass_lim, n_prime_array
 
@@ -282,7 +284,7 @@ class HODClustering():
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=1, sph_hankel=None):
+                 halo_exclusion_model=1, reltol=5e-4, sph_hankel=None):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -306,6 +308,7 @@ class HODClustering():
         self.use_mvir_limit = use_mvir_limit
         self.halo_exclusion_model = halo_exclusion_model
         self.sph_hankel = sph_hankel
+        self.massint_reltol = reltol
 
         self.pk_satsat = None
         self.pk_2h = None
@@ -320,9 +323,11 @@ class HODClustering():
                                        logM_step=self.logM_step)
 
         # Compute galaxy density for this model
-        self.gal_dens = \
-            hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
-                                          halo_instance=self.halomodel)
+        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
+                                               halo_instance=self.halomodel,
+                                               logM_min=self.logM_min,
+                                               logM_max=self.logM_max,
+                                               reltol=self.massint_reltol)
 
         # Create the profile instance, and pre-compute the Fourier-space
         # profile. Will compute it at the k values given by powesp_matter
@@ -349,9 +354,12 @@ class HODClustering():
         self.hod.set_mass_arrays(logM_min=self.logM_min,
                                  logM_max=self.logM_max,
                                  logM_step=self.logM_step)
-        self.gal_dens = \
-            hodmodel.dens_galaxies_arrays(hod_instance=self.hod,
-                                          halo_instance=self.halomodel)
+
+        self.gal_dens = hodmodel.dens_galaxies(hod_instance=self.hod,
+                                               halo_instance=self.halomodel,
+                                               logM_min=self.logM_min,
+                                               logM_max=self.logM_max,
+                                               reltol=self.massint_reltol)
 
         # We will need to re-compute all clustering terms, so reset them
         self.pk_satsat = None
@@ -489,7 +497,8 @@ class HODClustering():
                                   hod_instance=self.hod,
                                   halo_instance=self.halomodel,
                                   logM_min=self.logM_min,
-                                  logM_step=self.logM_step)
+                                  logM_step=self.logM_step,
+                                  reltol=self.massint_reltol)
 
             for i, (r, masslim, nprime) in\
                     enumerate(zip(rvalues, mlimvals, nprimevals)):
