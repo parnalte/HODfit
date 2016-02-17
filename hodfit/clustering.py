@@ -189,7 +189,7 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
             hodmodel.dens_galaxies(hod_instance=hod_instance,
                                    halo_instance=halo_instance,
                                    logM_min=logM_min,
-                                   logM_max=np.log10(mass_lim), reltol=reltol)
+                                   logM_max=np.log10(mlim), reltol=reltol)
 
     return mass_lim, n_prime_array
 
@@ -284,7 +284,7 @@ class HODClustering():
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=1, reltol=5e-4, sph_hankel=None):
+                 halo_exclusion_model=1, reltol=0.05, sph_hankel=None):
 
         assert redshift >= 0
         assert powesp_matter is not None
