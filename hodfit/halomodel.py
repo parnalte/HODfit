@@ -269,54 +269,9 @@ class HaloModelMW02():
 
         return dnudM*self.ndens_differential(mass=mass)
 
-    def ndens_integral(self, logM_min=10.0, logM_max=16.0, logM_step=0.05):
+    def ndens_integral(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
         """
-        Compute the total number density of haloes given a range (and binning)
-        in halo mass.
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        We will use simple Simpson integration rule, using Scipy's function
-        for this.
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert logM_step > 0
-
-        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-
-        nd_diff_array = self.ndens_diff_m(mass=mass_array)
-
-        return integrate.simps(y=nd_diff_array, x=mass_array, even='first')
-
-    def ndens_integral_quad(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
-        """
-        TEST: Compute the total number density of haloes given a range in
-        halo mass.
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        Use quadrature integration (from Scipy), to the relative tolerance set
-        by the parameter 'reltol'.
-        We do a change of variable to integrate over x=log10(M).
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert reltol > 0
-
-        def integrand(x):
-            return np.log(10)*(10**x)*self.ndens_diff_m(mass=10**x)
-
-        int_result = integrate.quad(integrand, a=logM_min, b=logM_max,
-                                    epsabs=0, epsrel=reltol)
-
-        return int_result[0]
-
-    def ndens_integral_romb(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
-        """
-        TEST: Compute the total number density of haloes given a range in halo
+        Compute the total number density of haloes given a range in halo
         mass.
 
         Define the mass range in log10 space, units of M_sol.
@@ -337,56 +292,9 @@ class HaloModelMW02():
                                        tol=0, rtol=reltol, vec_func=True)
         return int_result[0]
 
-    def mean_bias(self, logM_min=10.0, logM_max=16.0, logM_step=0.05):
-        """Compute the mean halo bias given a range (and binning) in halo mass.
-
-           Define the mass ranges in log10 space, units of M_sol.
-
-           We will integrate the bias over the mass function, using Scipy's
-           function for Simpson's integration rule.
+    def mean_bias(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
         """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert logM_step > 0
-
-        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-
-        nd_diff_array = self.ndens_diff_m(mass=mass_array)
-        bias_array = self.bias_fmass(mass=mass_array)
-
-        return integrate.simps(y=(bias_array*nd_diff_array),
-                               x=mass_array, even='first') /\
-            self.ndens_integral(logM_min, logM_max, logM_step)
-
-    def mean_bias_quad(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
-        """
-        TEST: Compute the mean halo bias given a range in halo mass.
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        Use quadrature integration (from Scipy), to the relative tolerance set
-        by the parameter 'reltol'.
-        We do a change of variable to integrate over x=log10(M).
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert reltol > 0
-
-        def integrand(x):
-            return np.log(10)*(10**x)*self.bias_fmass(mass=10**x) * \
-                self.ndens_diff_m(mass=10**x)
-
-        int_result = integrate.quad(integrand, a=logM_min, b=logM_max,
-                                    epsabs=0, epsrel=reltol)
-
-        return int_result[0] / \
-            self.ndens_integral_quad(logM_min, logM_max, reltol)
-
-    def mean_bias_romb(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
-        """
-        TEST: Compute the mean halo bias given a range in halo mass.
+        Compute the mean halo bias given a range in halo mass.
 
         Define the mass ranges in log10 space, units of M_sol.
 
@@ -407,54 +315,9 @@ class HaloModelMW02():
                                        tol=0, rtol=reltol, vec_func=True)
 
         return int_result[0] / \
-            self.ndens_integral_romb(logM_min, logM_max, reltol)
+            self.ndens_integral(logM_min, logM_max, reltol)
 
-    def mean_mass(self, logM_min=10.0, logM_max=16.0, logM_step=0.05):
-        """Compute the mean halo mass given a range (and binning) in halo mass.
-
-           Define the mass ranges in log10 space, units of M_sol.
-
-           We will integrate the mass over the mass function, using Scipy's
-           function for Simpson's integration rule.
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert logM_step > 0
-
-        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-
-        nd_diff_array = self.ndens_diff_m(mass=mass_array)
-
-        return integrate.simps(y=(mass_array*nd_diff_array),
-                               x=mass_array, even='first') /\
-            self.ndens_integral(logM_min, logM_max, logM_step)
-
-    def mean_mass_quad(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
-        """
-        Compute the mean halo mass given a range in halo mass.
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        Use quadrature integration (from Scipy), to the relative tolerance set
-        by the parameter 'reltol'.
-        We do a change of variable to integrate over x=log10(M).
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert reltol > 0
-
-        def integrand(x):
-            return np.log(10)*(10**(2*x))*self.ndens_diff_m(mass=10**x)
-
-        int_result = integrate.quad(integrand, a=logM_min, b=logM_max,
-                                    epsabs=0, epsrel=reltol)
-
-        return int_result[0] / \
-            self.ndens_integral_quad(logM_min, logM_max, reltol)
-
-    def mean_mass_romb(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
+    def mean_mass(self, logM_min=10.0, logM_max=16.0, reltol=1e-5):
         """
         Compute the mean halo mass given a range in halo mass.
 
@@ -476,88 +339,10 @@ class HaloModelMW02():
                                        tol=0, rtol=reltol, vec_func=True)
 
         return int_result[0] / \
-            self.ndens_integral_romb(logM_min, logM_max, reltol)
+            self.ndens_integral(logM_min, logM_max, reltol)
 
     def integral_quantities(self, logM_min=10.0, logM_max=16.0,
-                            logM_step=0.05):
-        """
-        For a given range of masses (and integration steps), compute the
-        interesting integral quantites doing an integral over the differential
-        mass function:
-        This function returns:
-         - Integral mass function: number density of haloes for the mass
-           range (identical to the result of 'ndens_integral')
-         - Mean bias for the given range
-         - Mean halo mass for the given range
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        Using SciPy's Simpson integration function
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert logM_step > 0
-
-        mass_array = 10**np.arange(logM_min, logM_max, logM_step)
-
-        nd_diff_array = self.ndens_diff_m(mass=mass_array)
-        bias_array = self.bias_fmass(mass=mass_array)
-
-        ndens_integral = integrate.simps(y=nd_diff_array, x=mass_array,
-                                         even='first')
-        mean_bias = integrate.simps(y=(bias_array*nd_diff_array),
-                                    x=mass_array, even='first')/ndens_integral
-        mean_mass = integrate.simps(y=(mass_array*nd_diff_array),
-                                    x=mass_array, even='first')/ndens_integral
-
-        return ndens_integral, mean_bias, mean_mass
-
-    def integral_quantities_quad(self, logM_min=10.0, logM_max=16.0,
-                                 reltol=1e-5):
-        """
-        For a given range of masses, compute the interesting integral
-        quantities doing an integral over the differential mass function:
-        This function returns:
-          - Integral mass function: number density of haloes for the mass range
-            (identical to the result of 'ndens_integral_quad')
-          - Mean bias for the given range (identical to 'mean_bias_quad')
-          - Mean halo mass for the given range (identical to 'mean_mass_quad')
-
-        Define the mass ranges in log10 space, units of M_sol.
-
-        Use quadrature integration (from Scipy), to the relative tolerance set
-        by the parameter 'reltol'.
-        We do a change of variable to integrate over x=log10(M).
-        """
-
-        assert logM_min > 0
-        assert logM_max > logM_min
-        assert reltol > 0
-
-        def integrand_ndens(x):
-            return np.log(10)*(10**x)*self.ndens_diff_m(mass=10**x)
-
-        def integrand_bias(x):
-            return np.log(10)*(10**x)*self.bias_fmass(mass=10**x) * \
-                self.ndens_diff_m(mass=10**x)
-
-        def integrand_mass(x):
-            return np.log(10)*(10**(2*x))*self.ndens_diff_m(mass=10**x)
-
-        ndens_int = integrate.quad(integrand_ndens, a=logM_min, b=logM_max,
-                                   epsabs=0, epsrel=reltol)[0]
-
-        mean_bias = integrate.quad(integrand_bias, a=logM_min, b=logM_max,
-                                   epsabs=0, epsrel=reltol)[0]/ndens_int
-
-        mean_mass = integrate.quad(integrand_mass, a=logM_min, b=logM_max,
-                                   epsabs=0, epsrel=reltol)[0]/ndens_int
-
-        return ndens_int, mean_bias, mean_mass
-
-    def integral_quantities_romb(self, logM_min=10.0, logM_max=16.0,
-                                 reltol=1e-5):
+                            reltol=1e-5):
         """
         For a given range of masses, compute the interesting integral
         quantities doing an integral over the differential mass function:
