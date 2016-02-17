@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 import emcee
-import triangle
+import corner
 import matplotlib.pyplot as plt
 
 
@@ -556,18 +556,14 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
         quant_plot = []
 
     # Create the corner plot, and save it to a file (name given as input)
-    # Do a fancier plot (1-sigma and 2-sigma contours, etc.) if version
+    # We do the "fancy" plot (1-sigma and 2-sigma contours, etc.) as we assume
+    # a recent version of the corner package
     # of triangle module >=0.2.0
-    tri_vers = map(int, triangle.__version__.split('.'))
-    if tri_vers[0] > 0 or tri_vers[1] >= 2:
-        fig = triangle.corner(df_chain, truths=maxlike_values,
-                              quantiles=quant_plot, verbose=False,
-                              fill_contours=True, show_titles=True,
-                              plot_datapoints=True, levels=perc_intervals/100.)
-    else:
-        fig = triangle.corner(df_chain, labels=df_chain.columns,
-                              truths=maxlike_values, quantiles=quant_plot,
-                              verbose=False)
+    fig = corner.corner(df_chain, truths=maxlike_values,
+                        quantiles=quant_plot, verbose=False,
+                        fill_contours=True, show_titles=True,
+                        plot_datapoints=True, levels=perc_intervals/100.)
+
     fig.savefig(corner_plot_file)
 
     # Now, compute the dictionary containing the characterisation of the
