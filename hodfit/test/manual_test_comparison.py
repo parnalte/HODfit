@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import hods_clustering as hc
+#import hods_clustering as hc
+from hodfit import clustering as hc
 import numpy as np
 import pylab as pl
 

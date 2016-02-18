@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-import hods_clustering as hc
-import hods_hodmodel as hod
+# import hods_clustering as hc
+# import hods_hodmodel as hod
+from hodfit import clustering as hc
+from hodfit import hodmodel as hod
 import numpy as np
 import time
 

@@ -5,8 +5,8 @@
 
 import numpy as np
 import astropy.cosmology as ac
-from hods_halomodel import *
-
+# from hods_halomodel import *
+from hodfit.halomodel import *
 
 def test_delta_c_0():
     this_cosmo = ac.WMAP7
