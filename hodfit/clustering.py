@@ -19,6 +19,7 @@ import numpy as np
 import astropy.cosmology as ac
 import hankel
 from scipy import integrate
+from scipy import interpolate
 
 import halomodel
 import hodmodel
@@ -246,12 +247,93 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     else:
         mlim_selection = np.ones(hod_instance.Nm, int)
 
-    return integrate.simps(
+#    return integrate.simps(
+#        y=(halo_instance.ndens_diff_m_array * hod_instance.n_tot_array *
+#           halo_instance.bias_array * dprof_term * mlim_selection),
+#        x=hod_instance.mass_array, even='first')
+    return integrate.trapz(
         y=(halo_instance.ndens_diff_m_array * hod_instance.n_tot_array *
            halo_instance.bias_array * dprof_term * mlim_selection),
-        x=hod_instance.mass_array, even='first')
+        x=hod_instance.mass_array)
 
 
+def integral_2hterm_masslimarray(kvalues, hod_instance=None,
+                                 halo_instance=None, redshift=0,
+                                 cosmo=ac.WMAP7, powesp_lin_0=None,
+                                 prof_fourier=None, mass_limit=None):
+    """
+    This function computes the integral needed to get the 2-halo term
+    in the HOD clustering model, at a particular value of the wavenumber 'k',
+    or an array of k values.
+    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
+    NFW profile at each value of the mass.
+    Following eq. (7) in 'model_definition.tex'
+
+    This function is adapted to get as input an array of k-values
+    [of length Nk], *and* an array of mass_limits [of length Nr].
+    The output will be a 2D array of shape [Nk, Nr].
+    """
+
+    # Check that the array quantities are properly set and
+    # match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+
+    # If mass_limit==None, set it to the maximum mass in the arrays
+    if mass_limit is None:
+        mass_limit = hod_instance.mass_array[-1]
+
+    # Convert to array (even if single number)
+    mass_limit = np.atleast_1d(mass_limit)
+    
+    # To avoid problems later (extrapolation), set the maximum mass limit
+    # to the maximum mass in the mass array
+    M_max = hod_instance.mass_array[-1]
+    mass_limit = np.where(mass_limit < M_max, mass_limit, M_max)
+    
+
+    # No profile provided, have to compute it here
+    if prof_fourier is None:
+        profile_instance = densprofile.HaloProfileNFW(
+            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
+            powesp_lin_0=powesp_lin_0)
+
+        # Compute the Fourier-space profile at all the scales 'kvalues'
+        # for all our mass values
+        # Output array will have shape (Nk, Nm), which is the correct one to
+        # pass to integration routine
+        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
+
+    # If given, have to check that it has appropriate dimensions
+    else:
+        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
+        dprofile_fourier = prof_fourier
+
+    dprof_term = np.absolute(dprofile_fourier)
+
+    # Now, first compute the cumulative integral for all values of the
+    # mass array 
+    # Shape of 'cumul_integral' will be [Nk, Nm]    
+    cumul_integral = integrate.cumtrapz(
+        y=(halo_instance.ndens_diff_m_array * hod_instance.n_tot_array *
+           halo_instance.bias_array * dprof_term),
+        x=hod_instance.mass_array, initial=0)
+        
+    # I use 2D (linear) interpolation to this object (maybe don't needed,
+    # as the k-values I'm going to use are always the same, but this
+    # makes it simpler)
+    # Transposes needed because of the definition of functions...
+    interp_function = interpolate.interp2d(x=kvalues,
+                                           y=hod_instance.mass_array,
+                                           z=cumul_integral.T, kind='linear')
+                                           
+    # This is the desired output, with the correct shape [Nk, Nr]
+    integ_2hterm = interp_function(kvalues, mass_limit).T
+    
+    return integ_2hterm
+        
+    
 class HODClustering():
     """
     Class that contains a full model for the galaxy clustering for
@@ -461,6 +543,52 @@ class HODClustering():
 
         return PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
+    def get_xir_2h_scalesarr(self, rvalues, masslimvals, nprimevals):
+        """
+        Computes the correlation function xi(r) for the two-halo term
+        given a set of input r-values and their corresponding maximum
+        mass limits, and modified galaxy densities densities.
+        The latter two should have obtained from the needed halo exclusion
+        model
+        """
+        
+        # First check that the lengths are correct
+        assert len(rvalues) == len(masslimvals)
+        assert len(rvalues) == len(nprimevals)
+        
+        kvalues = self.powesp_matter.k
+
+        # Get the corresponding values of the integral term (2D: [Nk, Nr])
+        int_2h_kr = integral_2hterm_masslimarray(kvalues=kvalues,
+                                                 hod_instance=self.hod,
+                                                 halo_instance=self.halomodel,
+                                                 redshift=self.redshift,
+                                                 cosmo=self.cosmo,
+                                                 powesp_lin_0=self.powesp_lin_0,
+                                                 mass_limit=masslimvals,
+                                                 prof_fourier=self.dprofile_fourier)
+                                            
+        # And now, get the factor that should multiply the matter power 
+        # spectrum in each case.
+        # when n'=0 (typycally, masslim < M_min), set this factor to 0
+        factor_2h_kr = np.where(nprimevals > 0,
+                                pow(int_2h_kr/nprimevals, 2), 0)
+         
+        # Now, need a loop over r values to transform the power spectrum 
+        # in each case
+        xiprime = np.empty(len(rvalues), float)
+        for i, r in enumerate(rvalues):
+            this_r_pkvals = self.powesp_matter.pk*factor_2h_kr[:,i]
+            this_r_powesp = PowerSpectrum(kvals=kvalues, pkvals=this_r_pkvals)
+            xiprime[i] = this_r_powesp.xir(r, sph_hankel=self.sph_hankel)
+             
+        # Finally, re-escale the xiprime we obtained following eq. (B9)
+        # of Tinker-2005
+        xir_2h = (pow(nprimevals/self.gal_dens, 2)*(1. + xiprime)) - 1.
+        
+        return xir_2h
+        
+
     def xi_2h(self, rvalues):
         """
         Computes the xi for the 2-halo term at the scales given by 'rvalues'
@@ -482,7 +610,7 @@ class HODClustering():
         # Zheng's halo exclusion model
         elif self.halo_exclusion_model == 1:
 
-            xir_2h = np.empty(len(rvalues), float)
+            # xir_2h = np.empty(len(rvalues), float)
             mlimvals, nprimevals = \
                 mlim_nprime_zheng(rscales=rvalues, redshift=self.redshift,
                                   cosmo=self.cosmo,
@@ -490,19 +618,22 @@ class HODClustering():
                                   halo_instance=self.halomodel,
                                   logM_min=self.logM_min,
                                   logM_step=self.logM_step)
+            xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
+                                               masslimvals=mlimvals,
+                                               nprimevals=nprimevals)                                  
 
-            for i, (r, masslim, nprime) in\
-                    enumerate(zip(rvalues, mlimvals, nprimevals)):
-
-                if nprime == 0:  # Typically, if mass_lim < hod.mass_min
-                    xir_2h[i] = 0
-                else:
-                    pk_scale = self.get_pk_2h_scale(masslim, nprime)
-                    xiprime = pk_scale.xir(r, sph_hankel=self.sph_hankel)
-
-                    # Need to re-escale, as in eq. (B9) of Tinker-2005
-                    xir_2h[i] = \
-                        (pow(nprime/self.gal_dens, 2)*(1. + xiprime)) - 1.
+#            for i, (r, masslim, nprime) in\
+#                    enumerate(zip(rvalues, mlimvals, nprimevals)):
+#
+#                if nprime == 0:  # Typically, if mass_lim < hod.mass_min
+#                    xir_2h[i] = 0
+#                else:
+#                    pk_scale = self.get_pk_2h_scale(masslim, nprime)
+#                    xiprime = pk_scale.xir(r, sph_hankel=self.sph_hankel)
+#
+#                    # Need to re-escale, as in eq. (B9) of Tinker-2005
+#                    xir_2h[i] = \
+#                        (pow(nprime/self.gal_dens, 2)*(1. + xiprime)) - 1.
 
         else:
             raise Exception(
