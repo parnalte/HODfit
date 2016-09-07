@@ -192,6 +192,45 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
     return mass_lim, n_prime_array
 
+def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
+                       halo_instance=None):
+    """
+    Computes the upper mass integration limit and the modified galaxy density
+    (nprime) needed to implement the Tinker et al. (2005) model for the
+    calculation of the 2-halo term, taking into account elliptical halo
+    exclusion. This is described in eqs. (A.21-A.23) of Coupon et al. (2012),
+    and we'll use several functions defined in hodmodel.py
+    """
+    
+    # Want 'rscales' to be a 1D array
+    rscales = np.atleast_1d(rscales)
+    assert rscales.ndim == 1
+    Nr = len(rscales)
+    
+    # Compute the array of galaxy number densities as function of the possible
+    # mass limits
+    densgal_masslim = \
+        hodmodel.dens_galaxies_varmasslim(hod_instance=hod_instance,
+                                          halo_instance=halo_instance)
+                                          
+    # Now, loop over the values of rscales to obtain the value of nprime, 
+    # and match it to the appropriate mass_lim
+    n_prime_out = np.empty(Nr, float)
+    
+    for i,rval in enumerate(rscales):
+        n_prime_out[i] = \
+            hodmodel.galdens_haloexclusion(radius=rval, redshift=redshift,
+                                           cosmo=cosmo,
+                                           hod_instance=hod_instance,
+                                           halo_instance=halo_instance)
+    
+    mlim_indices = np.searchsorted(densgal_masslim, n_prime_out)
+    mass_lim_out = hod_instance.mass_array[mlim_indices]
+    
+    return mass_lim_out, n_prime_out
+    
+    
+
 
 def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
                           redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
