@@ -15,6 +15,9 @@ This module will contain the classes and functions related to the HOD models
 import numpy as np
 import scipy.special as spc
 from scipy import integrate
+import astropy.cosmology as ac
+
+import densprofile
 
 
 class HODModel():
@@ -395,3 +398,124 @@ def fraction_satellites_array(hod_instance=None, halo_instance=None):
     f_cent = fraction_centrals_array(hod_instance, halo_instance)
 
     return 1.0 - f_cent
+
+
+# Functions needed to compute M_lim following the method of 
+# Tinker et al. (2005)
+# Calculation of Mlim using Tinker et al. (2005) method
+def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
+    """
+    Computes the probability that two ellipsoidal haloes of masses mass_1
+    and mass_2 do not overlap if they are separated by a given radius.
+
+    Corresponds to equation (A.23) in Coupon et al. (2012).
+
+    Assumes mass_1 and mass_2 are 1-D arrays each (with lengths N1, N2),
+    and returns a N1xN2 2D array with the results of the function for a
+    single value of radius.
+    """
+
+    mass_1 = np.atleast_1d(mass_1)
+    mass_2 = np.atleast_1d(mass_2)
+
+    assert mass_1.ndim == 1
+    assert mass_2.ndim == 1
+
+    rvir_1 = densprofile.rvir_from_mass(mass_1, redshift, cosmo)
+    rvir_2 = densprofile.rvir_from_mass(mass_2, redshift, cosmo)
+
+    rvirmesh_1, rvirmesh_2 = np.meshgrid(rvir_1, rvir_2, indexing='ij')
+
+    # xvar, yvar are already N1xN2 arrays
+    xvar = radius/(rvirmesh_1 + rvirmesh_2)
+    yvar = (xvar - 0.8)/0.29
+
+    result = 3*pow(yvar, 2) - 2*pow(yvar, 3)
+    result[yvar < 0] = 0
+    result[yvar > 1] = 1
+
+    return result
+    
+    
+def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
+                          hod_instance=None, halo_instance=None):
+    """
+    Computes the galaxy number density taking into account the halo
+    exclusion for ellipsoidal haloes. This will be used to determine the
+    corresponding M_lim for 2-halo term integrations.
+
+    Corresponds to equation (A.22) of Coupon et al. (2012).
+    
+    Will follow in part what is done in dens_galaxies_arrays
+    """
+    
+    # First, need to check that the array quantities are properly set and
+    # match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+    
+    dens_ntot_1d = hod_instance.n_tot_array*halo_instance.ndens_diff_m_array
+    
+    dens_ntot_1, dens_ntot_2 = np.meshgrid(dens_ntot_1d, dens_ntot_1d)
+    
+    prob_over_term = probability_nonoverlap(radius=radius,
+                                            mass_1 = hod_instance.mass_array, 
+                                            mass_2 = hod_instance.mass_array,
+                                            redshift=redshift, cosmo=cosmo)
+    
+    integrand_2d = dens_ntot_1*dens_ntot_2*prob_over_term
+    
+    # Do the 2D integral by using Simpson's rule twice, as shown in
+    # http://stackoverflow.com/a/20677444
+    ndens_2 = integrate.simps(y=integrate.simps(y=integrand_2d,
+                                                x=hod_instance.mass_array),
+                              x=hod_instance.mass_array)
+                              
+    return np.sqrt(ndens_2)
+    
+    
+def dens_galaxies_varmasslim(hod_instance=None, halo_instance=None):
+    """
+    Computes the mean galaxy number density as function of the variable
+    mass limit, using the predefined mass-dependent quantities in the
+    hod and halomodel objects.
+    
+    We take the possible values of the upper mass limit to be the same as the
+    mass array, so the output will be an array of length Nm.
+    
+    We use the cumulative trapezoidal rule to make things easier and faster.
+    
+    This will be used for the halo-exclusion procedure (see eq. A.21 in 
+    Coupon et al., 2012)
+    """
+    
+    # First, need to check that the array quantities are properly set and
+    # match each other
+    assert hod_instance.Nm > 0
+    assert hod_instance.Nm == halo_instance.Nm
+    assert (hod_instance.mass_array == halo_instance.mass_array).all()
+    
+    integrand = hod_instance.n_tot_array*halo_instance.ndens_diff_m_array
+    
+    dens_gals_masslim = integrate.cumtrapz(y=integrand,
+                                           x=hod_instance.mass_array,
+                                           initial=0)
+                                           
+    return dens_gals_masslim                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
+                                           
