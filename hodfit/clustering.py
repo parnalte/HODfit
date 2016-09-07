@@ -395,7 +395,7 @@ class HODClustering():
           to the 'simple model'
       - halo_exclusion_model = 1: halo exclusion implemented following
           Zheng (2004), as described in eqs. (B4-B9) in Tinker et al. (2005)
-      - halo_exclusion_model = 2: [NOT IMPLEMENTED YET] will correspond
+      - halo_exclusion_model = 2 (default): will correspond
           to Tinker et al. (2005) proposed model, as used by Coupon-2012
     """
 
@@ -403,7 +403,7 @@ class HODClustering():
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=1, sph_hankel=None):
+                 halo_exclusion_model=2, sph_hankel=None):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -659,20 +659,20 @@ class HODClustering():
                                   logM_step=self.logM_step)
             xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
                                                masslimvals=mlimvals,
-                                               nprimevals=nprimevals)                                  
+                                               nprimevals=nprimevals)
 
-#            for i, (r, masslim, nprime) in\
-#                    enumerate(zip(rvalues, mlimvals, nprimevals)):
-#
-#                if nprime == 0:  # Typically, if mass_lim < hod.mass_min
-#                    xir_2h[i] = 0
-#                else:
-#                    pk_scale = self.get_pk_2h_scale(masslim, nprime)
-#                    xiprime = pk_scale.xir(r, sph_hankel=self.sph_hankel)
-#
-#                    # Need to re-escale, as in eq. (B9) of Tinker-2005
-#                    xir_2h[i] = \
-#                        (pow(nprime/self.gal_dens, 2)*(1. + xiprime)) - 1.
+        # Tinker's halo exclusion model
+        elif self.halo_exclusion_model == 2:
+
+            mlimvals, nprimevals = \
+                mlim_nprime_tinker(rscales=rvalues, redshift=self.redshift,
+                                  cosmo=self.cosmo,
+                                  hod_instance=self.hod,
+                                  halo_instance=self.halomodel)
+            xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
+                                               masslimvals=mlimvals,
+                                               nprimevals=nprimevals)   
+
 
         else:
             raise Exception(
@@ -732,7 +732,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
-                        halo_exclusion_model=1, use_tinker_bias_params=True,
+                        halo_exclusion_model=2, use_tinker_bias_params=True,
                         hankelN=6000, hankelh=0.0005):
     """
     Construct an HODClustering object defining all the needed parameters.
