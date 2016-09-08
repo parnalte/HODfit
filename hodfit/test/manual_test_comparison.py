@@ -5,7 +5,7 @@ from hodfit import clustering as hc
 import numpy as np
 import pylab as pl
 
-hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762)
+hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, logM_step=0.01)
 
 rp = np.logspace(-2,2,30)
 
@@ -13,26 +13,26 @@ print "Computing default model"
 wp = hc.get_wptotal(rpvals=rp, clustering_object=hcobj)
 
 #With constant bias
-hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, scale_dep_bias=False)
+hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, logM_step=0.01, scale_dep_bias=False)
 
 print "Computing constant bias model"
 wp_cbias = hc.get_wptotal(rpvals=rp, clustering_object=hcobj)
 
 #Without Mvir limit in cs term
-hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, use_mvir_limit=False)
+hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, logM_step=0.01, use_mvir_limit=False)
 
 print "Computing no-Mvir-lim model"
 wp_nomvirlim = hc.get_wptotal(rpvals=rp, clustering_object=hcobj)
 
 #Without halo exclusion in 2h term
-hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, halo_exclusion_model=0)
+hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, logM_step=0.01, halo_exclusion_model=0)
 
 print "Computing no halo exclusion model"
 wp_nohaloexcl = hc.get_wptotal(rpvals=rp, clustering_object=hcobj)
 
 
 #With original MoWhite bias parameters
-hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, use_tinker_bias_params=False)
+hcobj = hc.hod_from_parameters(redshift=0.496412, OmegaM0=0.27, OmegaL0=0.73, powesp_linz0_file="WMAP7_linz0_matterpower.dat", powesp_matter_file="WMAP7_z0p52_matterpower.dat", hod_type=2, hod_mass_min=10**11.906, hod_mass_1=10**13.285, hod_alpha=1.4091, hod_siglogM=0.48456, hod_mass_0=10**6.6762, logM_step=0.01, use_tinker_bias_params=False)
 
 print "Computing original bias model"
 wp_origbias = hc.get_wptotal(rpvals=rp, clustering_object=hcobj)

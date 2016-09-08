@@ -225,9 +225,19 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
                                            halo_instance=halo_instance)
     
     mlim_indices = np.searchsorted(densgal_masslim, n_prime_out)
+    # For the cases when we get out of bounds, take the last value of the mass
+    mlim_indices[mlim_indices == hod_instance.Nm] = hod_instance.Nm - 1
     mass_lim_out = hod_instance.mass_array[mlim_indices]
     
-    return mass_lim_out, n_prime_out
+    # And now, compute the corresponding n_prime
+    n_prime_array = np.empty(Nr, float)
+
+    for i, mlim in enumerate(mass_lim_out):
+        n_prime_array[i] = \
+            hodmodel.dens_galaxies_arrays(hod_instance=hod_instance,
+                                          halo_instance=halo_instance,
+                                          mass_limit=mlim)
+    return mass_lim_out, n_prime_array
     
     
 
@@ -623,7 +633,7 @@ class HODClustering():
              
         # Finally, re-escale the xiprime we obtained following eq. (B9)
         # of Tinker-2005
-        xir_2h = (pow(nprimevals/self.gal_dens, 2)*(1. + xiprime)) - 1.
+        xir_2h = (pow(nprimevals/self.gal_dens, 1)*(1. + xiprime)) - 1.
         
         return xir_2h
         
