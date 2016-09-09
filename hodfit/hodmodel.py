@@ -410,16 +410,18 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
 
     Corresponds to equation (A.23) in Coupon et al. (2012).
 
-    Assumes mass_1 and mass_2 are 1-D arrays each (with lengths N1, N2),
-    and returns a N1xN2 2D array with the results of the function for a
-    single value of radius.
+    Assumes that radius, mass_1 and mass_2 are each 1-D arrays (with lengths
+    Nr, N1, N2), and returns a NrxN1xN2 3D array with the results of the
+    function for each combination of values.
     """
 
     mass_1 = np.atleast_1d(mass_1)
     mass_2 = np.atleast_1d(mass_2)
+    radius = np.atleast_1d(radius)
 
     assert mass_1.ndim == 1
     assert mass_2.ndim == 1
+    assert radius.ndim == 1
 
     rvir_1 = densprofile.rvir_from_mass(mass_1, redshift, cosmo)
     rvir_2 = densprofile.rvir_from_mass(mass_2, redshift, cosmo)
@@ -430,7 +432,15 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
 
     # Use notation to create N1xN2 array from
     # http://stackoverflow.com/a/20677444
-    xvar = radius/(rvir_1[:, None] + rvir_2)
+    inv_rvir_sum = 1/(rvir_1[:, None] + rvir_2)
+
+    # xvar = radius/(rvir_1[:, None] + rvir_2)
+
+    # Now, use an outer product to create the xvar
+    # array of shape NrxN1xN2, following http://stackoverflow.com/a/24840448
+    xvar = np.multiply.outer(radius, inv_rvir_sum)
+
+    # Now yvar and result should have the right dimensions
     yvar = (xvar - 0.8)/0.29
 
     # result = 3*pow(yvar, 2) - 2*pow(yvar, 3)
