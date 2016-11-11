@@ -215,14 +215,23 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
                                           
     # Now, loop over the values of rscales to obtain the value of nprime, 
     # and match it to the appropriate mass_lim
-    n_prime_out = np.empty(Nr, float)
+#    n_prime_out = np.empty(Nr, float)
+#    
+#    for i,rval in enumerate(rscales):
+#        n_prime_out[i] = \
+#            hodmodel.galdens_haloexclusion(radius=rval, redshift=redshift,
+#                                           cosmo=cosmo,
+#                                           hod_instance=hod_instance,
+#                                           halo_instance=halo_instance)
+
+    # Now, obtain the values of nprime as function of rval,
+    # and match it to the appropriate mass_lim
+    n_prime_out = hodmodel.galdens_haloexclusion(radius=rscales,
+                                                 redshift=redshift,
+                                                 cosmo=cosmo,
+                                                 hod_instance=hod_instance,
+                                                 halo_instance=halo_instance)    
     
-    for i,rval in enumerate(rscales):
-        n_prime_out[i] = \
-            hodmodel.galdens_haloexclusion(radius=rval, redshift=redshift,
-                                           cosmo=cosmo,
-                                           hod_instance=hod_instance,
-                                           halo_instance=halo_instance)
     
     mlim_indices = np.searchsorted(densgal_masslim, n_prime_out)
     # For the cases when we get out of bounds, take the last value of the mass

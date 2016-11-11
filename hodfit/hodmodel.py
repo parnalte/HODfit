@@ -436,13 +436,14 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
     # And combine with an 'generalized outer' product with radius
     # to create a NrxN1xN2 array
     # xvar = radius/(rvir_1[:,None] + rvir_2)
-    xvar = np.multiply.outer(radius, 1/(rvir_1[:, None] + rvir_2))
+    xvar = np.multiply.outer(radius, 1/(rvir_1[:, None] + rvir_2),
+                             dtype=np.float32)
 
     # All derived arrays are now NrxN1xN2
     yvar = (xvar - 0.8)/0.29
 
     # result = 3*pow(yvar, 2) - 2*pow(yvar, 3)
-    result = 3*yvar*yvar - 2*yvar*yvar*yvar
+    result = yvar*yvar*(3 - 2*yvar)
     result[yvar < 0] = 0
     result[yvar > 1] = 1
 
@@ -470,6 +471,11 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
+    # Same for the radius array
+    radius = np.atleast_1d(radius)
+    assert radius.ndim == 1
+    Nr = len(radius)
+
     dens_ntot_1d = hod_instance.n_tot_array*halo_instance.ndens_diff_m_array
 
     # dens_ntot_1, dens_ntot_2 = np.meshgrid(dens_ntot_1d, dens_ntot_1d)
@@ -479,14 +485,16 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
                                             mass_2=hod_instance.mass_array,
                                             redshift=redshift, cosmo=cosmo)
 
-    # integrand_2d = dens_ntot_1*dens_ntot_2*prob_over_term
-    integrand_2d = np.outer(dens_ntot_1d, dens_ntot_1d)*prob_over_term
+    ndens_2 = np.empty(Nr)
+    for i, r in enumerate(radius):
+        integrand_2d = np.outer(dens_ntot_1d, dens_ntot_1d)*prob_over_term[i]
 
-    # Do the 2D integral by using Simpson's rule twice, as shown in
-    # http://stackoverflow.com/a/20677444
-    ndens_2 = integrate.simps(y=integrate.simps(y=integrand_2d,
-                                                x=hod_instance.mass_array),
-                              x=hod_instance.mass_array)
+        # Do the 2D integral by using Simpson's rule twice, as shown in
+        # http://stackoverflow.com/a/20677444
+        ndens_2[i] = integrate.simps(y=integrate.simps(
+                                        y=integrand_2d,
+                                        x=hod_instance.mass_array),
+                                     x=hod_instance.mass_array)
 
     return np.sqrt(ndens_2)
 
