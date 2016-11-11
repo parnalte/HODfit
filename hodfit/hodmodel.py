@@ -411,13 +411,16 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
     Corresponds to equation (A.23) in Coupon et al. (2012).
 
     Assumes mass_1 and mass_2 are 1-D arrays each (with lengths N1, N2),
-    and returns a N1xN2 2D array with the results of the function for a
-    single value of radius.
+    and radius is also a 1-D array with length Nr.
+    Returns a NrxN1xN2 3D array with the result of the function for all
+    the values of the three input parameters.
     """
 
+    radius = np.atleast_1d(radius)
     mass_1 = np.atleast_1d(mass_1)
     mass_2 = np.atleast_1d(mass_2)
 
+    assert radius.ndim == 1
     assert mass_1.ndim == 1
     assert mass_2.ndim == 1
 
@@ -430,7 +433,12 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
 
     # Use notation to create N1xN2 array from
     # http://stackoverflow.com/a/20677444
-    xvar = radius/(rvir_1[:,None] + rvir_2)
+    # And combine with an 'generalized outer' product with radius
+    # to create a NrxN1xN2 array
+    # xvar = radius/(rvir_1[:,None] + rvir_2)
+    xvar = np.multiply.outer(radius, 1/(rvir_1[:,None] + rvir_2))
+
+    # All derived arrays are now NrxN1xN2
     yvar = (xvar - 0.8)/0.29
 
     #result = 3*pow(yvar, 2) - 2*pow(yvar, 3)
