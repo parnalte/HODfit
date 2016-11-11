@@ -192,6 +192,7 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
     return mass_lim, n_prime_array
 
+
 def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
                        halo_instance=None):
     """
@@ -201,28 +202,17 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
     exclusion. This is described in eqs. (A.21-A.23) of Coupon et al. (2012),
     and we'll use several functions defined in hodmodel.py
     """
-    
+
     # Want 'rscales' to be a 1D array
     rscales = np.atleast_1d(rscales)
     assert rscales.ndim == 1
     Nr = len(rscales)
-    
+
     # Compute the array of galaxy number densities as function of the possible
     # mass limits
     densgal_masslim = \
         hodmodel.dens_galaxies_varmasslim(hod_instance=hod_instance,
                                           halo_instance=halo_instance)
-                                          
-    # Now, loop over the values of rscales to obtain the value of nprime, 
-    # and match it to the appropriate mass_lim
-#    n_prime_out = np.empty(Nr, float)
-#    
-#    for i,rval in enumerate(rscales):
-#        n_prime_out[i] = \
-#            hodmodel.galdens_haloexclusion(radius=rval, redshift=redshift,
-#                                           cosmo=cosmo,
-#                                           hod_instance=hod_instance,
-#                                           halo_instance=halo_instance)
 
     # Now, obtain the values of nprime as function of rval,
     # and match it to the appropriate mass_lim
@@ -230,14 +220,13 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
                                                  redshift=redshift,
                                                  cosmo=cosmo,
                                                  hod_instance=hod_instance,
-                                                 halo_instance=halo_instance)    
-    
-    
+                                                 halo_instance=halo_instance)
+
     mlim_indices = np.searchsorted(densgal_masslim, n_prime_out)
     # For the cases when we get out of bounds, take the last value of the mass
     mlim_indices[mlim_indices == hod_instance.Nm] = hod_instance.Nm - 1
     mass_lim_out = hod_instance.mass_array[mlim_indices]
-    
+
     # And now, compute the corresponding n_prime
     n_prime_array = np.empty(Nr, float)
 
@@ -247,8 +236,6 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
                                           halo_instance=halo_instance,
                                           mass_limit=mlim)
     return mass_lim_out, n_prime_array
-    
-    
 
 
 def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
@@ -344,12 +331,11 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
 
     # Convert to array (even if single number)
     mass_limit = np.atleast_1d(mass_limit)
-    
+
     # To avoid problems later (extrapolation), set the maximum mass limit
     # to the maximum mass in the mass array
     M_max = hod_instance.mass_array[-1]
     mass_limit = np.where(mass_limit < M_max, mass_limit, M_max)
-    
 
     # No profile provided, have to compute it here
     if prof_fourier is None:
@@ -371,13 +357,13 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     dprof_term = np.absolute(dprofile_fourier)
 
     # Now, first compute the cumulative integral for all values of the
-    # mass array 
-    # Shape of 'cumul_integral' will be [Nk, Nm]    
+    # mass array
+    # Shape of 'cumul_integral' will be [Nk, Nm]
     cumul_integral = integrate.cumtrapz(
         y=(halo_instance.ndens_diff_m_array * hod_instance.n_tot_array *
            halo_instance.bias_array * dprof_term),
         x=hod_instance.mass_array, initial=0)
-        
+
     # I use 2D (linear) interpolation to this object (maybe don't needed,
     # as the k-values I'm going to use are always the same, but this
     # makes it simpler)
@@ -385,13 +371,13 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     interp_function = interpolate.interp2d(x=kvalues,
                                            y=hod_instance.mass_array,
                                            z=cumul_integral.T, kind='linear')
-                                           
+
     # This is the desired output, with the correct shape [Nk, Nr]
     integ_2hterm = interp_function(kvalues, mass_limit).T
-    
+
     return integ_2hterm
-        
-    
+
+
 class HODClustering():
     """
     Class that contains a full model for the galaxy clustering for
@@ -609,43 +595,43 @@ class HODClustering():
         The latter two should have obtained from the needed halo exclusion
         model
         """
-        
+
         # First check that the lengths are correct
         assert len(rvalues) == len(masslimvals)
         assert len(rvalues) == len(nprimevals)
-        
+
         kvalues = self.powesp_matter.k
 
         # Get the corresponding values of the integral term (2D: [Nk, Nr])
-        int_2h_kr = integral_2hterm_masslimarray(kvalues=kvalues,
-                                                 hod_instance=self.hod,
-                                                 halo_instance=self.halomodel,
-                                                 redshift=self.redshift,
-                                                 cosmo=self.cosmo,
-                                                 powesp_lin_0=self.powesp_lin_0,
-                                                 mass_limit=masslimvals,
-                                                 prof_fourier=self.dprofile_fourier)
-                                            
-        # And now, get the factor that should multiply the matter power 
+        int_2h_kr = \
+            integral_2hterm_masslimarray(kvalues=kvalues,
+                                         hod_instance=self.hod,
+                                         halo_instance=self.halomodel,
+                                         redshift=self.redshift,
+                                         cosmo=self.cosmo,
+                                         powesp_lin_0=self.powesp_lin_0,
+                                         mass_limit=masslimvals,
+                                         prof_fourier=self.dprofile_fourier)
+
+        # And now, get the factor that should multiply the matter power
         # spectrum in each case.
         # when n'=0 (typycally, masslim < M_min), set this factor to 0
         factor_2h_kr = np.where(nprimevals > 0,
                                 pow(int_2h_kr/nprimevals, 2), 0)
-         
-        # Now, need a loop over r values to transform the power spectrum 
+
+        # Now, need a loop over r values to transform the power spectrum
         # in each case
         xiprime = np.empty(len(rvalues), float)
         for i, r in enumerate(rvalues):
-            this_r_pkvals = self.powesp_matter.pk*factor_2h_kr[:,i]
+            this_r_pkvals = self.powesp_matter.pk*factor_2h_kr[:, i]
             this_r_powesp = PowerSpectrum(kvals=kvalues, pkvals=this_r_pkvals)
             xiprime[i] = this_r_powesp.xir(r, sph_hankel=self.sph_hankel)
-             
+
         # Finally, re-escale the xiprime we obtained following eq. (B9)
         # of Tinker-2005
         xir_2h = (pow(nprimevals/self.gal_dens, 1)*(1. + xiprime)) - 1.
-        
+
         return xir_2h
-        
 
     def xi_2h(self, rvalues):
         """
@@ -685,13 +671,12 @@ class HODClustering():
 
             mlimvals, nprimevals = \
                 mlim_nprime_tinker(rscales=rvalues, redshift=self.redshift,
-                                  cosmo=self.cosmo,
-                                  hod_instance=self.hod,
-                                  halo_instance=self.halomodel)
+                                   cosmo=self.cosmo,
+                                   hod_instance=self.hod,
+                                   halo_instance=self.halomodel)
             xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
                                                masslimvals=mlimvals,
-                                               nprimevals=nprimevals)   
-
+                                               nprimevals=nprimevals)
 
         else:
             raise Exception(
