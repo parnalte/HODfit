@@ -877,6 +877,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     logMmin = config.getfloat('HaloModelCalc', 'logMmin')
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
     logMstep = config.getfloat('HaloModelCalc', 'logMstep')
+    halo_exclusion_model = config.getint('HaloModelCalc',
+                                         'halo_exclusion_model')
 
     # Read in parameters related to the calculation of wp in the models
     # We also define here the r-array needed to define the HODClustering object
@@ -902,7 +904,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        hod_type=hod_type, logM_min=logMmin,
                                        logM_max=logMmax, logM_step=logMstep,
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,
-                                       rlog=True)
+                                       rlog=True,
+                                       halo_exclusion_model=halo_exclusion_model)
 
     # Now, we start the fun! First, get the best-fit model using Scipy
     # minimisation methods
