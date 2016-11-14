@@ -866,12 +866,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     else:
         raise ValueError("Allowed values of HOD_type are 1 or 2")
 
-    # Define the 'HODClustering' object which we use through.
-    # This basically defines the cosmology+halo model+functional form of HOD+
-    # numerical properties of the way in which we integrate over M_halo
-    #
-    # Will use the defaults for many parameters (actual HOD parameters are not
-    # relevant here)
+    # Read in parameters related to the Cosmology to be used, and to
+    # details of how to do the calculations
     redshift = config.getfloat('Cosmology', 'redshift')
     omega_matter = config.getfloat('Cosmology', 'omega_matter')
     omega_lambda = config.getfloat('Cosmology', 'omega_lambda')
@@ -882,19 +878,31 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
     logMstep = config.getfloat('HaloModelCalc', 'logMstep')
 
+    # Read in parameters related to the calculation of wp in the models
+    # We also define here the r-array needed to define the HODClustering object
+    wpcalc_nr = config.getint('WpCalc', 'nr')
+    wpcalc_npi = config.getint('WpCalc', 'npi')
+    wpcalc_pimin = config.getfloat('WpCalc', 'pimin')
+    wpcalc_pimax = config.getfloat('WpCalc', 'pimax')
+
+    rmin = rpmin
+    rmax = np.sqrt((wpcalc_pimax**2.) + (rpmax**2.))
+
+    # Define the 'HODClustering' object which we use through.
+    # This basically defines the cosmology+halo model+functional form of HOD+
+    # numerical properties of the way in which we integrate over M_halo
+    #
+    # Will use the defaults for many parameters (actual HOD parameters are not
+    # relevant here)
     hod_clust =\
         clustering.hod_from_parameters(redshift=redshift, OmegaM0=omega_matter,
                                        OmegaL0=omega_lambda,
                                        powesp_matter_file=pk_matter_z_file,
                                        powesp_linz0_file=pk_lin_z0_file,
                                        hod_type=hod_type, logM_min=logMmin,
-                                       logM_max=logMmax, logM_step=logMstep)
-
-    # Read in parameters related to the calculation of wp in the models
-    wpcalc_nr = config.getint('WpCalc', 'nr')
-    wpcalc_npi = config.getint('WpCalc', 'npi')
-    wpcalc_pimin = config.getfloat('WpCalc', 'pimin')
-    wpcalc_pimax = config.getfloat('WpCalc', 'pimax')
+                                       logM_max=logMmax, logM_step=logMstep,
+                                       rmin=rmin, rmax=rmax, nr=wpcalc_nr,
+                                       rlog=True)
 
     # Now, we start the fun! First, get the best-fit model using Scipy
     # minimisation methods

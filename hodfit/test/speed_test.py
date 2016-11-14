@@ -34,6 +34,12 @@ alpha_start = 1.2
 
 rp = np.logspace(np.log10(0.3),np.log10(12),16)
 
+rmin = rp.min()
+rmax = np.sqrt(PIMAXCALC**2 + rp.max()**2)
+rarray = np.logspace(np.log10(rmin), np.log10(rmax), NRCALC)
+hodclust_object.update_rvalues(rarray)
+
+
 t1 = time.time()
 wp_start = wp_hod(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start, alpha=alpha_start, hodclustering=hodclust_object)
 t2 = time.time()
@@ -46,6 +52,9 @@ hodclust_object = hc.hod_from_parameters(redshift=redshift, OmegaM0=OmegaM_0,
                                          powesp_linz0_file=pkfile_lin_z0, logM_min=6.,
                                          logM_max=17., logM_step=0.01, halo_exclusion_model=1)
 
+hodclust_object.update_rvalues(rarray)
+
+
 t1 = time.time()
 wp_start = wp_hod(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start, alpha=alpha_start, hodclustering=hodclust_object)
 t2 = time.time()
@@ -57,6 +66,8 @@ hodclust_object = hc.hod_from_parameters(redshift=redshift, OmegaM0=OmegaM_0,
                                          OmegaL0=OmegaL_0, powesp_matter_file=pkfile_matter_z,
                                          powesp_linz0_file=pkfile_lin_z0, logM_min=6.,
                                          logM_max=17., logM_step=0.01, halo_exclusion_model=0)
+
+hodclust_object.update_rvalues(rarray)
 
 t1 = time.time()
 wp_start = wp_hod(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start, alpha=alpha_start, hodclustering=hodclust_object)

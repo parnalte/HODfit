@@ -194,7 +194,7 @@ def mlim_nprime_zheng(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
 
 def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
-                       halo_instance=None):
+                       halo_instance=None, prob_nonover_array=None):
     """
     Computes the upper mass integration limit and the modified galaxy density
     (nprime) needed to implement the Tinker et al. (2005) model for the
@@ -216,11 +216,13 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
     # Now, obtain the values of nprime as function of rval,
     # and match it to the appropriate mass_lim
-    n_prime_out = hodmodel.galdens_haloexclusion(radius=rscales,
-                                                 redshift=redshift,
-                                                 cosmo=cosmo,
-                                                 hod_instance=hod_instance,
-                                                 halo_instance=halo_instance)
+    n_prime_out = \
+        hodmodel.galdens_haloexclusion(radius=rscales,
+                                       redshift=redshift,
+                                       cosmo=cosmo,
+                                       hod_instance=hod_instance,
+                                       halo_instance=halo_instance,
+                                       prob_nonover_array=prob_nonover_array)
 
     mlim_indices = np.searchsorted(densgal_masslim, n_prime_out)
     # For the cases when we get out of bounds, take the last value of the mass
@@ -402,13 +404,18 @@ class HODClustering():
           Zheng (2004), as described in eqs. (B4-B9) in Tinker et al. (2005)
       - halo_exclusion_model = 2 (default): will correspond
           to Tinker et al. (2005) proposed model, as used by Coupon-2012
+          
+    We associate a fixed array of r values to this object (which will be used
+    for all xi(r) computations, so that, in the case of halo_exclusion_model=2
+    we can pre-compute the values of P(r, M1, M2) needed for the calculation).
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=2, sph_hankel=None):
+                 halo_exclusion_model=2, sph_hankel=None,
+                 rvalues=np.logspace(-1, 2, 100)):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -418,6 +425,9 @@ class HODClustering():
         assert logM_min > 0
         assert logM_max > logM_min
         assert logM_step > 0
+
+        assert rvalues.ndim == 1
+        assert (rvalues >= 0).all()
 
         self.redshift = redshift
         self.cosmo = cosmo
@@ -460,6 +470,28 @@ class HODClustering():
         self.kvals = self.powesp_matter.k
         self.dprofile_fourier = self.densprofile.profile_fourier(k=self.kvals)
 
+        # Stuff related to the scales array and pre-computation of the
+        # probability of no overlapping array
+        self.rvalues = np.sort(rvalues)
+
+        if self.halo_exclusion_model == 2:
+            self.get_p_no_overlap()
+        else:
+            self.p_no_overlap = None
+
+    def get_p_no_overlap(self):
+        """
+        Function to compute the probability of no overlap between haloes for
+        the values of the HODClustering object
+        """
+        self.p_no_overlap = \
+            hodmodel.probability_nonoverlap(radius=self.rvalues,
+                                            mass_1=self.hod.mass_array,
+                                            mass_2=self.hod.mass_array,
+                                            redshift=self.redshift,
+                                            cosmo=self.cosmo)
+        return self.p_no_overlap
+
     def update_hod(self, hod_instance):
         """
         Function to update only the HOD values for the HODClustering object.
@@ -483,14 +515,29 @@ class HODClustering():
         self.pk_satsat = None
         self.pk_2h = None
 
-    def xi_centsat(self, rvalues):
+    def update_rvalues(self, rvalues):
+        """
+        Function to update only the scale (r) values for the HODClustering
+        object, including re-computation of the p_no_overlap, if needed.
+        """
+        assert rvalues.ndim == 1
+        assert (rvalues >= 0).all()
+
+        self.rvalues = np.sort(rvalues)
+
+        if self.halo_exclusion_model == 2:
+            self.get_p_no_overlap()
+        else:
+            self.p_no_overlap = None
+
+    def xi_centsat(self):
         """
         Computes the xi for the central-satellite term at the scales
-        given by 'rvalues'
+        given by 'self.rvalues'
         """
 
         int_cs_r = \
-            integral_centsatterm_array(rvalues=rvalues,
+            integral_centsatterm_array(rvalues=self.rvalues,
                                        hod_instance=self.hod,
                                        halo_instance=self.halomodel,
                                        redshift=self.redshift,
@@ -522,10 +569,10 @@ class HODClustering():
 
         self.pk_satsat = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
 
-    def xi_satsat(self, rvalues):
+    def xi_satsat(self):
         """
         Computes the xi for satellite-satellite term at the scales
-        given by 'rvalues'
+        given by 'self.rvalues'
         First, we check if we have already computed the corresponding P(k)
         and, if that is not the case, we compute it.
         """
@@ -535,7 +582,8 @@ class HODClustering():
             kvalues = self.powesp_matter.k
             self.get_pk_satsat(kvalues=kvalues)
 
-        xir_ss = self.pk_satsat.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
+        xir_ss = self.pk_satsat.xir(rvals=self.rvalues,
+                                    sph_hankel=self.sph_hankel)
 
         return xir_ss
 
@@ -633,9 +681,10 @@ class HODClustering():
 
         return xir_2h
 
-    def xi_2h(self, rvalues):
+    def xi_2h(self):
         """
-        Computes the xi for the 2-halo term at the scales given by 'rvalues'
+        Computes the xi for the 2-halo term at the scales given by
+        'self.rvalues'.
         First, we check if we have already computed the corresponding
         P(k) and, if that is not the case, we compute it.
 
@@ -649,20 +698,21 @@ class HODClustering():
             if self.pk_2h is None:
                 self.get_pk_2h()
 
-            xir_2h = self.pk_2h.xir(rvals=rvalues, sph_hankel=self.sph_hankel)
+            xir_2h = self.pk_2h.xir(rvals=self.rvalues,
+                                    sph_hankel=self.sph_hankel)
 
         # Zheng's halo exclusion model
         elif self.halo_exclusion_model == 1:
 
             # xir_2h = np.empty(len(rvalues), float)
             mlimvals, nprimevals = \
-                mlim_nprime_zheng(rscales=rvalues, redshift=self.redshift,
+                mlim_nprime_zheng(rscales=self.rvalues, redshift=self.redshift,
                                   cosmo=self.cosmo,
                                   hod_instance=self.hod,
                                   halo_instance=self.halomodel,
                                   logM_min=self.logM_min,
                                   logM_step=self.logM_step)
-            xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
+            xir_2h = self.get_xir_2h_scalesarr(rvalues=self.rvalues,
                                                masslimvals=mlimvals,
                                                nprimevals=nprimevals)
 
@@ -670,11 +720,13 @@ class HODClustering():
         elif self.halo_exclusion_model == 2:
 
             mlimvals, nprimevals = \
-                mlim_nprime_tinker(rscales=rvalues, redshift=self.redshift,
+                mlim_nprime_tinker(rscales=self.rvalues,
+                                   redshift=self.redshift,
                                    cosmo=self.cosmo,
                                    hod_instance=self.hod,
-                                   halo_instance=self.halomodel)
-            xir_2h = self.get_xir_2h_scalesarr(rvalues=rvalues,
+                                   halo_instance=self.halomodel,
+                                   prob_nonover_array=self.p_no_overlap)
+            xir_2h = self.get_xir_2h_scalesarr(rvalues=self.rvalues,
                                                masslimvals=mlimvals,
                                                nprimevals=nprimevals)
 
@@ -683,7 +735,7 @@ class HODClustering():
                 "This halo exclusion model is not implemented (yet)!")
 
         if self.scale_dep_bias:
-            xi_matter = self.powesp_matter.xir(rvals=rvalues,
+            xi_matter = self.powesp_matter.xir(rvals=self.rvalues,
                                                sph_hankel=self.sph_hankel)
             bias_correction = \
                 pow(1. + (1.17 * xi_matter), 1.49) /\
@@ -692,35 +744,35 @@ class HODClustering():
 
         return xir_2h
 
-    def xi_1h(self, rvalues):
+    def xi_1h(self):
         """
         Computes the 1-halo correlation function term from combining
         cent-sat and sat-sat terms
         """
 
-        xir_1h = self.xi_centsat(rvalues) + self.xi_satsat(rvalues)
+        xir_1h = self.xi_centsat() + self.xi_satsat()
 
         return xir_1h
 
-    def xi_total(self, rvalues):
+    def xi_total(self):
         """
         Computes the total (1h + 2h) correlation function from the
         previous functions
         """
 
-        xir_total = 1. + self.xi_1h(rvalues) + self.xi_2h(rvalues)
+        xir_total = 1. + self.xi_1h() + self.xi_2h()
 
         return xir_total
 
-    def xi_all(self, rvalues):
+    def xi_all(self):
         """
         Computes all the relevant correlation functions at once
         (just combine previous functions together)
         """
 
-        xi_cs = self.xi_centsat(rvalues)
-        xi_ss = self.xi_satsat(rvalues)
-        xi_2h = self.xi_2h(rvalues)
+        xi_cs = self.xi_centsat()
+        xi_ss = self.xi_satsat()
+        xi_2h = self.xi_2h()
 
         xi_1h = xi_cs + xi_ss
 
@@ -737,7 +789,8 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
                         halo_exclusion_model=2, use_tinker_bias_params=True,
-                        hankelN=6000, hankelh=0.0005):
+                        hankelN=6000, hankelh=0.0005, rmin=0.01, rmax=100.0,
+                        nr=100, rlog=True):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -800,6 +853,16 @@ Are you sure that is what you really want?")
         sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN,
                                                      h=hankelh)
 
+    # Define the array of r-values for the HODClustering object
+    assert rmax > rmin
+    assert rmin >= 0
+    assert nr > 0
+
+    if rlog:
+        rvals_array = np.logspace(np.log10(rmin), np.log10(rmax), nr)
+    else:
+        rvals_array = np.linspace(rmin, rmax, nr)
+
     # And finally, define the clustering object
     model_clustering_object = \
         HODClustering(redshift=redshift, cosmo=cosmo_object,
@@ -809,7 +872,7 @@ Are you sure that is what you really want?")
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,
                       halo_exclusion_model=halo_exclusion_model,
-                      sph_hankel=sph_hankel)
+                      sph_hankel=sph_hankel, rvalues=rvals_array)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
@@ -831,7 +894,11 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
     # Define the array in r we will use to compute the model xi(r)
     rmin = rpvals.min()
     rmax = np.sqrt((pimax**2.) + (rpvals.max()**2.))
-    rarray = np.logspace(np.log10(rmin), np.log10(rmax), nr)
+    rarray = clustering_object.rvalues
+
+    assert rarray.min() <= rmin
+    assert rarray.max() >= rmax
+    assert len(rarray) >= nr
 
     logpimin = np.log10(pimin)
     logpimax = np.log10(pimax)
@@ -839,8 +906,7 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
     if partial_terms:
 
         # Obtain the needed xi(r) functions
-        xitot, xi2h, xi1h, xics, xiss = \
-            clustering_object.xi_all(rvalues=rarray)
+        xitot, xi2h, xi1h, xics, xiss = clustering_object.xi_all()
 
         # And convert to wp(rp) functions
         wptot = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xitot,
@@ -857,7 +923,7 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
         return wptot, wp2h, wp1h, wpcs, wpss
 
     else:
-        xitot = clustering_object.xi_total(rvalues=rarray)
+        xitot = clustering_object.xi_total()
 
         wptot = xir2wp_pi(rpvals=rpvals, rvals=rarray, xivals=xitot,
                           logpimin=logpimin, logpimax=logpimax, npi=npi)

@@ -451,7 +451,8 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
 
 
 def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
-                          hod_instance=None, halo_instance=None):
+                          hod_instance=None, halo_instance=None,
+                          prob_nonover_array=None):
     """
     Computes the galaxy number density taking into account the halo
     exclusion for ellipsoidal haloes. This will be used to determine the
@@ -463,12 +464,18 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
 
     Works correctly when 'radius' is a 1D array (returns array of the same
     length).
+
+    If passed, it will use the pre-computed array of 'probabilities of no
+    overlap between haloes' (prob_nonover_array). If not present, or not
+    matching the dimensions of the other input values, it will compute it
+    again (this will be much slower).
     """
 
     # First, need to check that the array quantities are properly set and
     # match each other
-    assert hod_instance.Nm > 0
-    assert hod_instance.Nm == halo_instance.Nm
+    Nm = hod_instance.Nm
+    assert Nm > 0
+    assert Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
     # Same for the radius array
@@ -480,10 +487,17 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
 
     # dens_ntot_1, dens_ntot_2 = np.meshgrid(dens_ntot_1d, dens_ntot_1d)
 
-    prob_over_term = probability_nonoverlap(radius=radius,
-                                            mass_1=hod_instance.mass_array,
-                                            mass_2=hod_instance.mass_array,
-                                            redshift=redshift, cosmo=cosmo)
+    if (prob_nonover_array is not None) and \
+     prob_nonover_array.shape == (Nr, Nm, Nm):
+        prob_over_term = prob_nonover_array
+
+    else:
+        raise UserWarning("Computing again P(r, M1, M2), this will make code "
+                          "run slowly")
+        prob_over_term = probability_nonoverlap(radius=radius,
+                                                mass_1=hod_instance.mass_array,
+                                                mass_2=hod_instance.mass_array,
+                                                redshift=redshift, cosmo=cosmo)
 
     ndens_2 = np.empty(Nr)
     for i, r in enumerate(radius):
@@ -491,7 +505,8 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
 
         # Do the 2D integral by using Simpson's rule twice, as shown in
         # http://stackoverflow.com/a/20677444
-        ndens_2[i] = integrate.simps(y=integrate.simps(
+        # Changed to trapezoidal rule for speed
+        ndens_2[i] = integrate.trapz(y=integrate.trapz(
                                         y=integrand_2d,
                                         x=hod_instance.mass_array),
                                      x=hod_instance.mass_array)
