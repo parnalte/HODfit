@@ -629,7 +629,7 @@ class HODClustering():
 
         # Finally, re-escale the xiprime we obtained following eq. (B9)
         # of Tinker-2005
-        xir_2h = (pow(nprimevals/self.gal_dens, 1)*(1. + xiprime)) - 1.
+        xir_2h = (pow(nprimevals/self.gal_dens, 2)*(1. + xiprime)) - 1.
 
         return xir_2h
 
