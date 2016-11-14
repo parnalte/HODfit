@@ -434,7 +434,7 @@ def probability_nonoverlap(radius, mass_1, mass_2, redshift=0, cosmo=ac.WMAP7):
     # http://stackoverflow.com/a/20677444
     # And combine with an 'generalized outer' product with radius
     # to create a NrxN1xN2 array,
-	# following http://stackoverflow.com/a/24840448
+    # following http://stackoverflow.com/a/24840448
     # xvar = radius/(rvir_1[:,None] + rvir_2)
     xvar = np.multiply.outer(radius, 1/(rvir_1[:, None] + rvir_2),
                              dtype=np.float32)
@@ -529,8 +529,9 @@ def dens_galaxies_varmasslim(hod_instance=None, halo_instance=None):
     dens_gals_masslim = np.empty(hod_instance.Nm, float)
 
     for i, mlim in enumerate(hod_instance.mass_array):
-        dens_gals_masslim[i] = dens_galaxies_arrays(hod_instance=hod_instance,
-                                                   halo_instance=halo_instance,
-                                                   mass_limit=mlim)
+        dens_gals_masslim[i] = \
+            dens_galaxies_arrays(hod_instance=hod_instance,
+                                 halo_instance=halo_instance,
+                                 mass_limit=mlim)
 
     return dens_gals_masslim
