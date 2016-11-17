@@ -506,10 +506,11 @@ def galdens_haloexclusion(radius, redshift=0, cosmo=ac.WMAP7,
         # Do the 2D integral by using Simpson's rule twice, as shown in
         # http://stackoverflow.com/a/20677444
         # Changed to trapezoidal rule for speed
-        ndens_2[i] = integrate.trapz(y=integrate.trapz(
+        ndens_2[i] = integrate.simps(y=integrate.simps(
                                         y=integrand_2d,
-                                        x=hod_instance.mass_array),
-                                     x=hod_instance.mass_array)
+                                        x=hod_instance.mass_array,
+                                        even='first'),
+                                     x=hod_instance.mass_array, even='first')
 
     return np.sqrt(ndens_2)
 
