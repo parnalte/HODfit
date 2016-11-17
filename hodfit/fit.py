@@ -887,8 +887,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     wpcalc_pimin = config.getfloat('WpCalc', 'pimin')
     wpcalc_pimax = config.getfloat('WpCalc', 'pimax')
 
-    rmin = rpmin
-    rmax = np.sqrt((wpcalc_pimax**2.) + (rpmax**2.))
+    rmin = rpsel.min()
+    rmax = np.sqrt((wpcalc_pimax**2.) + (rpsel.max()**2.))
 
     # Define the 'HODClustering' object which we use through.
     # This basically defines the cosmology+halo model+functional form of HOD+
