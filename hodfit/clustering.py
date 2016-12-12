@@ -69,12 +69,11 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
                                                   cosmo=cosmo,
                                                   powesp_lin_0=powesp_lin_0)
 
-    # Compute the profile at all the scales 'rvalue' for all our mass values
+    # Compute the normalized profile at all the scales 'rvalue' for all
+    # our mass values
     # Output array will have shape (Nr, Nm), which
     # is the correct one to pass to integration routine
-    # Include the needed normalisation
-    dprofile_config = \
-        profile_instance.profile_config(r=rvalues)/hod_instance.mass_array
+    dprofile_config = profile_instance.profile_config_norm(r=rvalues)
 
     # Implement the virial mass lower limit in the integration, as in
     # eq. (A17) in C2012

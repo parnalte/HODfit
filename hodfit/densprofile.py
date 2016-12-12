@@ -193,6 +193,20 @@ class HaloProfileNFW():
         rho_h = self.rho_s/(fact1*fact2)
         return rho_h
 
+    def profile_config_norm(self, r):
+        """
+        Returns the *normalized* halo density profile in configuration space,
+        as function of the scale r (can be an array).
+
+        This normalized profile is the one needed for the calculation of the
+        central-satellite term.
+
+        Returns an array of shape (Nr, Nmass), where Nr si the number of scales
+        given as input.
+        """
+
+        return self.profile_config(r)/self.mass
+
     def profile_fourier(self, k):
         """Returns the normalised halo density profile in Fourier space,
            as function of the wavenumber k (can be an array).
