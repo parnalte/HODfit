@@ -331,6 +331,50 @@ class HaloProfileModNFW(HaloProfileNFW):
 
         # Add the galaxy concentration
         self.f_gal = f_gal
-        self.gal_conc = self.conc*self.f_gal
-    
-    
+        self.conc_gal = self.conc*self.f_gal
+
+        # And modified parameters that depend on the concentration
+        self.r_s_gal = self.rvir/self.conc_gal
+        self.rho_s_gal = rhos_from_charact(mass=self.mass, rvir=self.rvir,
+                                           conc=self.conc_gal)
+
+    def mod_profile_config(self, r):
+        """
+        Returns the halo *galaxy* density profile in configuration space,
+        for the *modified* NFW case, as function of the scale r (can be an
+        array).
+
+        Returns an array of shape (Nr, Nmass), where Nr is the number of
+        scales given as input.
+        """
+
+        return profile_NFW_config_parameters(r, self.rho_s_gal,
+                                             self.r_s_gal, self.rvir)
+
+    def mod_profile_config_norm(self, r):
+        """
+        Returns the *normalized* halo *galaxy* density profile in
+        configuration space, for the *modified* NFW case, as function of
+        the scale r (can be an array).
+
+        This normalized profile is the one needed for the calculation of
+        the central-satellite term.
+
+        Returns an array of shape (Nr, Nmass), where Nr is the number of
+        scales given as input.
+        """
+
+        return self.mod_profile_config(r)/self.mass
+
+    def mod_profile_fourier(self, k):
+        """
+        Returns the normalised halo *galaxy* density profile in Fourier
+        space, for the *modified* NFW case, as function of the wavenumber
+        k (can be an array).
+
+        Returns an array of shape (Nk, Nmass), where Nk is the number
+        of scales given as input.
+        """
+
+        return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
+                                              self.r_s_gal, self.conc_gal)
