@@ -131,6 +131,80 @@ def rhos_from_charact(mass=1e10, rvir=1.0, conc=10.0):
     return rho_s
 
 
+def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
+    """
+    Function that returns the standard NFW profile in configuration space
+    (as function of scale 'rvals'), given the basic parameters
+    rho_s (normalization), r_s (characteristic scale) and rvir (virial radius).
+
+    We truncate the resulting profile at r=rvir.
+
+    Assume that rho_s and r_s are arrays of length Nm, corresponding to Nm
+    different haloes of several masses.
+
+    Returns an array of shape (Nr, Nm), where Nr is the length of rvals.
+    """
+
+    rvals = np.atleast_1d(rvals)
+    assert rvals.ndim == 1
+
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert len(rho_s) == len(r_s)
+
+    fact1 = np.outer(rvals, 1./r_s)
+    fact2 = pow(1. + fact1, 2.0)
+    rho_h = rho_s/(fact1*fact2)
+
+    rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
+    rho_h[rvals_grid > rvir_grid] = 0
+    return rho_h
+
+
+def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
+    """
+    Function that returns the standard NFW profile in Fourier space
+    (as function of wavenumber 'kvals'), given the basic parameters
+    of the haloes.
+
+    We take this from eq. (81) in CS02, so it already takes into account
+    the truncation of the halo.
+
+    Assume that mass, rho_s, r_s and conc are arrays of length Nm,
+    corresponding to Nm different haloes of several masses.
+
+    Returns an array of shape (Nk, Nm), where Nk is the length of kvals.
+    """
+
+    kvals = np.atleast_1d(kvals)
+    assert kvals.ndim == 1
+
+    mass = np.atleast_1d(mass)
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert conc.ndim == 1
+    assert len(mass) == len(rho_s) == len(r_s) == len(conc)
+
+    # Need to compute the sine and cosine integrals
+    si_ckr, ci_ckr = spc.sici(np.outer(kvals, (1. + conc) * r_s))
+    si_kr, ci_kr = spc.sici(np.outer(kvals, r_s))
+
+    fact1 = np.sin(np.outer(kvals, r_s)) * (si_ckr - si_kr)
+    fact2 = np.sin(np.outer(kvals, conc * r_s)) / \
+        (np.outer(kvals, (1. + conc) * r_s))
+    fact3 = np.cos(np.outer(kvals, r_s)) * (ci_ckr - ci_kr)
+
+    uprof = 4.*np.pi*(rho_s / mass) * pow(r_s, 3.) * (fact1 - fact2 + fact3)
+
+    return uprof
+
+
 class HaloProfileNFW(object):
     """Class that describes a Navarro-Frenk-White profile for a halo of a given
        mass, and for a given cosmology and redshift.
@@ -185,13 +259,8 @@ class HaloProfileNFW(object):
            of scales given as input.
         """
 
-        r = np.atleast_1d(r)
-        assert r.ndim == 1
-
-        fact1 = np.outer(r, 1./self.r_s)
-        fact2 = pow(1. + fact1, 2.0)
-        rho_h = self.rho_s/(fact1*fact2)
-        return rho_h
+        return profile_NFW_config_parameters(r, self.rho_s, self.r_s,
+                                             self.rvir)
 
     def profile_config_norm(self, r):
         """
@@ -216,19 +285,8 @@ class HaloProfileNFW(object):
            of scales given as input.
         """
 
-        # Need to compute the sine and cosine integrals
-        si_ckr, ci_ckr = spc.sici(np.outer(k, (1.+self.conc)*self.r_s))
-        si_kr, ci_kr = spc.sici(np.outer(k, self.r_s))
-
-        fact1 = np.sin(np.outer(k, self.r_s))*(si_ckr - si_kr)
-        fact2 = np.sin(np.outer(k, self.conc*self.r_s)) /\
-            (np.outer(k, (1. + self.conc)*self.r_s))
-        fact3 = np.cos(np.outer(k, self.r_s))*(ci_ckr - ci_kr)
-
-        uprof = 4.*np.pi*(self.rho_s/self.mass)*pow(self.r_s, 3.) *\
-            (fact1 - fact2 + fact3)
-
-        return uprof
+        return profile_NFW_fourier_parameters(k, self.mass, self.rho_s,
+                                              self.r_s, self.conc)
 
 
 class HaloProfileModNFW(HaloProfileNFW):
