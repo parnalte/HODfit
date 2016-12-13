@@ -131,7 +131,7 @@ def rhos_from_charact(mass=1e10, rvir=1.0, conc=10.0):
     return rho_s
 
 
-class HaloProfileNFW():
+class HaloProfileNFW(object):
     """Class that describes a Navarro-Frenk-White profile for a halo of a given
        mass, and for a given cosmology and redshift.
     """

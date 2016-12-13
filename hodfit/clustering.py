@@ -379,7 +379,7 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     return integ_2hterm
 
 
-class HODClustering():
+class HODClustering(object):
     """
     Class that contains a full model for the galaxy clustering for
     a particular model, defined by
