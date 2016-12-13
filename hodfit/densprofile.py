@@ -229,3 +229,50 @@ class HaloProfileNFW(object):
             (fact1 - fact2 + fact3)
 
         return uprof
+
+
+class HaloProfileModNFW(HaloProfileNFW):
+    """
+    Class that describes a *modified* Navarro-Frenk-White profile for a halo
+    of a given mass, with additional free parameters f_gal and gamma
+    following the model of Watson et al. (2010).
+
+    For now, only the addition of f_gal is implemented.
+
+    We inherit from the class corresponding to the standard NFW profile.
+    """
+
+    def __init__(self, mass=1e10, f_gal=1.0, gamma=1.0,
+                 redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
+                 c_zero=11.0, beta=0.13,
+                 logM_min=10.0, logM_max=16.0, logM_step=0.05):
+        """
+        Parameters defining the NFW halo profile:
+
+        mass: mass of the halo (in M_sol) -- float or array of floats
+        f_gal: relation between galaxy concentration and DM concentration
+               For NFW, f_gal=1
+        gamma (NOT implemented): inner slope of the density profile
+               For NFW, gamma=1
+        redshift -- float
+        cosmo: an astropy.cosmology object defining the cosmology
+        powesp_lin_0: a PowerSpectrum object containing the z=0 linear power
+                      spectrum corresponding to this same cosmology
+        c_zero, beta: parameters for the concentration relation.
+                      Probably best to leave at the default values
+        logM_min, logM_max, logM_step: parameters of the mass array used in
+                      the calculation of M_star (needed for the concentration)
+
+        Class adapted to work for an array of masses, not only a single value
+        """
+
+        # Call initialization from parent
+        super(HaloProfileModNFW, self).__init__(mass=mass, redshift=redshift,
+            cosmo=cosmo, powesp_lin_0=powesp_lin_0, c_zero=c_zero, beta=beta,
+            logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
+
+        # Add the galaxy concentration
+        self.f_gal = f_gal
+        self.gal_conc = self.conc*self.f_gal
+    
+    
