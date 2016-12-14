@@ -325,7 +325,11 @@ class HODClustering(object):
     """
     Class that contains a full model for the galaxy clustering for
     a particular model, defined by
-    Cosmology+redshift+halo model+HOD model+NFW profile.
+    Cosmology+redshift+halo model+HOD model+ (modified) NFW profile.
+
+    When both parameters f_gal and gamma are equal to 1, we use a NFW
+    halo profile. Otherwise, we use the modified NFW profile defined in
+    Watson et al. (2010).
 
     The parameter 'scale_dep_bias' determines whether we use the
     scale dependence of halo bias proposed by Tinker et al. (2005) or not.
@@ -353,6 +357,7 @@ class HODClustering(object):
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
+                 f_gal=1.0, gamma=1.0,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
                  halo_exclusion_model=2, sph_hankel=None,
@@ -403,13 +408,32 @@ class HODClustering(object):
 
         # Create the profile instance, and pre-compute the Fourier-space
         # profile. Will compute it at the k values given by powesp_matter
-        self.densprofile = \
-            densprofile.HaloProfileNFW(mass=self.hod.mass_array,
-                                       redshift=self.redshift,
-                                       cosmo=self.cosmo,
-                                       powesp_lin_0=self.powesp_lin_0)
+        # Use NFW or modified profile depending on the values of f_gal, gamma
         self.kvals = self.powesp_matter.k
-        self.dprofile_fourier = self.densprofile.profile_fourier(k=self.kvals)
+
+        self.f_gal = f_gal
+        self.gamma = gamma
+
+        if (self.f_gal == 1) and (self.gamma == 1):
+            self.modify_NFW = False
+            self.densprofile = \
+                densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                           redshift=self.redshift,
+                                           cosmo=self.cosmo,
+                                           powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.profile_fourier(k=self.kvals)
+        else:
+            self.modify_NFW = True
+            self.densprofile = \
+                densprofile.HaloProfileModNFW(mass=self.hod.mass_array,
+                                              f_gal=self.f_gal,
+                                              gamma=self.gamma,
+                                              redshift=self.redshift,
+                                              cosmo=self.cosmo,
+                                              powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.mod_profile_fourier(k=self.kvals)
 
         # Stuff related to the scales array and pre-computation of the
         # probability of no overlapping array
@@ -422,8 +446,12 @@ class HODClustering(object):
 
         # Also, given the scales array, compute the corresponding normalised
         # configuration-space halo density profile(s)
-        self.dprofile_config = \
-            self.densprofile.profile_config_norm(r=self.rvalues)
+        if self.modify_NFW:
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+        else:
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
 
     def get_p_no_overlap(self):
         """
@@ -475,9 +503,13 @@ class HODClustering(object):
             self.get_p_no_overlap()
         else:
             self.p_no_overlap = None
-            
-        self.dprofile_config = \
-            self.densprofile.profile_config_norm(r=self.rvalues)
+
+        if self.modify_NFW:
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+        else:
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
 
     def xi_centsat(self):
         """
@@ -723,6 +755,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         powesp_linz0_file="test/WMAP7_linz0_matterpower.dat",
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
+                        f_gal=1.0, gamma=1.0,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
                         halo_exclusion_model=2, use_tinker_bias_params=True,
@@ -805,6 +838,7 @@ Are you sure that is what you really want?")
         HODClustering(redshift=redshift, cosmo=cosmo_object,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
+                      f_gal=f_gal, gamma=gamma,
                       logM_min=logM_min, logM_max=logM_max,
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,
