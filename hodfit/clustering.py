@@ -511,6 +511,48 @@ class HODClustering(object):
             self.dprofile_config = \
                 self.densprofile.profile_config_norm(r=self.rvalues)
 
+    def update_profile_params(self, f_gal, gamma):
+        """
+        Function to update only the parameters defining the Modified NFW
+        profile for the HODClustering object.
+        Avoid the need to re-read other parameters when we only want to change
+        the profile paraemeters (most common case, e.g. for fitting).
+        """
+
+        self.f_gal = f_gal
+        self.gamma = gamma
+
+        # Set the profile object and compute at once both the Fourier-space
+        # and configuration space profiles
+        if (self.f_gal == 1) and (self.gamma == 1):
+            self.modify_NFW = False
+            self.densprofile = \
+                densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                           redshift=self.redshift,
+                                           cosmo=self.cosmo,
+                                           powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.profile_fourier(k=self.kvals)
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
+        else:
+            self.modify_NFW = True
+            self.densprofile = \
+                densprofile.HaloProfileModNFW(mass=self.hod.mass_array,
+                                              f_gal=self.f_gal,
+                                              gamma=self.gamma,
+                                              redshift=self.redshift,
+                                              cosmo=self.cosmo,
+                                              powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.mod_profile_fourier(k=self.kvals)
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+
+        # We will need to re-compute all clustering terms, so reset them
+        self.pk_satsat = None
+        self.pk_2h = None
+
     def xi_centsat(self):
         """
         Computes the xi for the central-satellite term at the scales
