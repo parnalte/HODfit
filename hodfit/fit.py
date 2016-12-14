@@ -993,7 +993,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         f_gal_init = config.getfloat('ModNFWModel', 'f_gal_init')
         f_gal_lims = map(float,
                          config.get('ModNFWModel', 'f_gal_limits').split())
-        prof_param_init += f_gal_init
+        prof_param_init += [f_gal_init]
         prof_param_lims += f_gal_lims
         
     fit_gamma = config.getboolean('ModNFWModel', 'fit_gamma')
@@ -1002,7 +1002,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         gamma_init = config.getfloat('ModNFWModel', 'gamma_init')
         gamma_lims = map(float,
                          config.get('ModNFWModel', 'gamma_limits').split())
-        prof_param_init += gamma_init
+        prof_param_init += [gamma_init]
         prof_param_lims += gamma_lims
         
     # Put together all the parameters that we will try to fit
@@ -1058,7 +1058,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # minimisation methods
     bestfit_params, bestfit_derived =\
         find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
-                      wp_icov=icovmat_sel, param_lims=hod_param_lims,
+                      wp_icov=icovmat_sel, param_lims=fit_param_lims,
                       return_model=True, clustobj=hod_clust, hod_type=hod_type,
                       fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                       nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
@@ -1120,7 +1120,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     # Now, actually run the MCMC
     run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
-             param_lims=hod_param_lims, clustobj=hod_clust, hod_type=hod_type,
+             param_lims=fit_param_lims, clustobj=hod_clust, hod_type=hod_type,
              fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
              nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
              npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
