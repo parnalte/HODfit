@@ -80,6 +80,7 @@ def wp_hod(rp, fit_params, clustobj=None, hod_type=1, fit_f_gal=False,
     and potentially of the ModifiedNFW profile, which we assume that will be
     changing between likelihood calls.
     Mass parameters in HOD are assumed to be given as log10(M_x).
+    Parameter f_gal is also assumed to be given as log10(f_gal).
 
     We allow the use of different HOD parameterisations using the 'hod_type'
     parameter (same options as in HODModel class).
@@ -108,7 +109,8 @@ def wp_hod(rp, fit_params, clustobj=None, hod_type=1, fit_f_gal=False,
     # parameters
     if n_dim_prof > 0:
         if fit_f_gal:
-            f_gal = fit_params[n_dim_hod]
+            # The parameter we actually fit is log10(f_gal)
+            f_gal = 10**fit_params[n_dim_hod]
         else:
             f_gal = 1.0   # NFW value
 
@@ -143,7 +145,9 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     and, if needed, on the ModNFW profile parameters.
     Mass parameters are assumed to be given as log10(M_x) (so the prior will
     be flat on the latter), alpha and sigma_logM are assumed to be given
-    directly. Same for f_gal and gamma.
+    directly. 
+    For the profile parameters, f_gal is assumed to be given as log10(f_gal),
+    while gamma is assumed to be given directly.
 
     We allow the use of different HOD parameterisations using the 'hod_type'
     parameter (same options as in HODModel class), and to decide whether
@@ -196,9 +200,9 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     # Get the part of the prior corresponding to the ModNFW profile parameters
     lnprior_prof = 0.0
     if fit_f_gal:
-        f_gal = fit_params[n_dim_hod]
-        f_gal_min, f_gal_max = param_lims[2*n_dim_hod:(2*n_dim_hod)+2]
-        if f_gal_min < f_gal < f_gal_max:
+        log_fgal = fit_params[n_dim_hod]
+        log_fgal_min, log_fgal_max = param_lims[2*n_dim_hod:(2*n_dim_hod)+2]
+        if log_fgal_min < log_fgal < log_fgal_max:
             lnprior_prof += 0.0
         else:
             lnprior_prof += -np.inf
@@ -525,7 +529,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     header_prof = ""
     if fit_f_gal:
         n_dim_prof += 1
-        header_prof += "f_gal "
+        header_prof += "log_fgal "
     if fit_gamma:
         n_dim_prof += 1
         header_prof += "gamma "
@@ -990,11 +994,11 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     fit_f_gal = config.getboolean('ModNFWModel', 'fit_f_gal')
     if fit_f_gal:
         n_dim_prof_model += 1
-        f_gal_init = config.getfloat('ModNFWModel', 'f_gal_init')
-        f_gal_lims = map(float,
-                         config.get('ModNFWModel', 'f_gal_limits').split())
-        prof_param_init += [f_gal_init]
-        prof_param_lims += f_gal_lims
+        log_fgal_init = config.getfloat('ModNFWModel', 'log_fgal_init')
+        log_fgal_lims = map(float,
+                         config.get('ModNFWModel', 'log_fgal_limits').split())
+        prof_param_init += [log_fgal_init]
+        prof_param_lims += log_fgal_lims
         
     fit_gamma = config.getboolean('ModNFWModel', 'fit_gamma')
     if fit_gamma:
