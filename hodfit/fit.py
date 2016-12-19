@@ -341,7 +341,7 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
 
 
 def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
-                  return_model=False, minim_method='Powell', clustobj=None,
+                  return_model=False, minim_method='Nelder-Mead', clustobj=None,
                   hod_type=1, fit_f_gal=False, fit_gamma=False,
                   nr=100, pimin=0.001, pimax=400, npi=100,
                   fit_density=0, data_dens=None, data_dens_err=None,
@@ -879,6 +879,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     Will read all the parameters from an .ini file using the ConfigParser.
 
     TODO: add options as new features are implemented in the rest of functions
+
+    TODO: add option to change the minimization method to use ("Nelder-Mead"
+    is the default) and pass it to find_best_fit()
     """
 
     # First of all, read in the configuration file
