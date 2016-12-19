@@ -16,6 +16,7 @@ Coupon et al., 2012 (C2012) and Cooray and Sheth, 2002 (CS02).
 import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
+from scipy import integrate
 
 import halomodel
 from utils import RHO_CRIT_UNITS
@@ -161,6 +162,78 @@ def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
     rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
     rho_h[rvals_grid > rvir_grid] = 0
     return rho_h
+
+
+def profile_ModNFW_config_parameters(rvals, rho_s, r_s, rvir, gamma=1):
+    """
+    Function that returns the *modified* NFW profile in configuration space
+    (as function of scale 'rvals'), given the basic parameters
+    rho_s (normalization), r_s (characteristic scale), rvir (virial radius),
+    and gamma (inner slope).
+
+    We truncate the resulting profile at r=rvir.
+
+    Assume that rho_s, r_s and rvir are arrays of length Nm, corresponding to
+    Nm different haloes of several masses.
+
+    Returns an array of shape (Nr, Nm), where Nr is the length of rvals.
+    """
+
+    rvals = np.atleast_1d(rvals)
+    assert rvals.ndim == 1
+
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    rvir = np.atleast_1d(rvir)
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert rvir.ndim == 1
+    assert len(rho_s) == len(r_s) == len(rvir)
+
+    r_ratios = np.outer(rvals, 1./r_s)
+    fact1 = pow(r_ratios, gamma)
+    fact2 = pow(1. + r_ratios, 3. - gamma)
+    rho_h = rho_s/(fact1*fact2)
+
+    rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
+    rho_h[rvals_grid > rvir_grid] = 0
+    return rho_h
+
+
+def integrand_unnorm(r, r_s, rvir, gamma):
+    """
+    Integrand function needed for the integral performed in
+    rhos_from_charact_modNFW , to obtain the mass corresponding to an
+    unnormalized ModNFW profile.
+    """
+    r_s = np.atleast_1d(r_s)
+    rvir = np.atleast_1d(rvir)
+    assert r_s.ndim == 1
+    assert rvir.ndim == 1
+    Nm = len(r_s)
+    assert Nm == len(rvir)
+
+    rho_u = profile_ModNFW_config_parameters(rvals=r, rho_s=np.ones(Nm),
+                                             r_s=r_s, rvir=rvir, gamma=gamma)
+    return 4*np.pi*r*r*rho_u
+
+
+def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
+    """
+    Obtain the normalization parameter, rho_s, given the characteristics of
+    the profile (r_vir, concentration, gamma), and the total mass enclosed
+    (mass).
+
+    We do this for the generalized NFW profile, so we do the integral of the
+    profile numerically to get the normalization.
+
+    TODO: Make this work when mass/rvir/conc are arrays of length Nm!!
+    """
+
+    r_s = rvir/conc
+    integ_unnorm = integrate.quad(integrand_unnorm, a=0, b=rvir,
+                                  args=(r_s, rvir, gamma))[0]
+    return mass/integ_unnorm
 
 
 def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
