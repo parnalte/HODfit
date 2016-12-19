@@ -376,7 +376,7 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
                                 nr, pimin, pimax, npi, fit_density,
                                 data_dens, data_dens_err, data_logdens,
                                 data_logdens_err),
-                          method=minim_method)
+                          method=minim_method, tol=1e-8)
 
     # Actually print the results
     print "Results of the maximization of the log(Posterior):"
