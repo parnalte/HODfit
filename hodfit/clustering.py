@@ -36,14 +36,14 @@ from utils import PowerSpectrum, xir2wp_pi, nostdout
 # hodmodel.dens_galaxies
 
 def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
-                               redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
-                               use_mvir_limit=True):
+                               dprofile_config=None, use_mvir_limit=True,
+                               redshift=0, cosmo=ac.WMAP7):
     """
     This function computes the integral needed to get the central-satellite
     term in the HOD clustering model, at a particular value of the scale 'r',
     or an array of r values.
-    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
-    NFW profile at each value of the mass.
+    In this case we use the pre-computed *normalised* config-space density
+    profiles, which has to be passed to the function (dprofile_config).
     Following eq. (4) in 'model_definition.tex'
 
     Adapted to work efficiently for input 'r' arrays.
@@ -64,18 +64,12 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-    profile_instance = densprofile.HaloProfileNFW(mass=hod_instance.mass_array,
-                                                  redshift=redshift,
-                                                  cosmo=cosmo,
-                                                  powesp_lin_0=powesp_lin_0)
+    assert dprofile_config.shape == (Nr, hod_instance.Nm)
 
-    # Compute the profile at all the scales 'rvalue' for all our mass values
-    # Output array will have shape (Nr, Nm), which
-    # is the correct one to pass to integration routine
-    # Include the needed normalisation
-    dprofile_config = \
-        profile_instance.profile_config(r=rvalues)/hod_instance.mass_array
-
+    # TODO: we can potentially eliminate all this 'use_mvir_limit' part, as
+    # now the config.-space density profile is truncated at Mvir (so this
+    # change in integration limit should have no effect)
+    #
     # Implement the virial mass lower limit in the integration, as in
     # eq. (A17) in C2012
     #
@@ -111,14 +105,13 @@ def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
 
 
 def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
-                              redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
-                              prof_fourier=None):
+                              dprofile_fourier=None):
     """
     This function computes the integral needed to get the satellite-satellite
     term in the HOD clustering model, at a particular value of the
     wavenumber 'k', or an array of k values.
-    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
-    NFW profile at each value of the mass.
+    We use the pro-computed Fourier-space density profiles, which have to
+    be passed to the function (dprofile_fourier).
     Following eq. (6) in 'model_definition.tex'
 
     Adapted to work efficiently for input 'k'arrays.
@@ -126,9 +119,6 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
 
     In this version of the function, we work with the mass-dependent
     pre-computed quantities in the hod and halo instances.
-
-    Modified to have the option of providing pre-computed Fourier-space
-    density profiles.
     """
 
     # Check that the array quantities are properly set and
@@ -137,22 +127,7 @@ def integral_satsatterm_array(kvalues, hod_instance=None, halo_instance=None,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-    # No profile provided, have to compute it here
-    if prof_fourier is None:
-        profile_instance = densprofile.HaloProfileNFW(
-            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
-            powesp_lin_0=powesp_lin_0)
-
-        # Compute the Fourier-space profile at all the scales 'kvalues'
-        # for all our mass values
-        # Output array will have shape (Nk, Nm), which is the correct one to
-        # pass to integration routine
-        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
-
-    # If given, have to check that it has appropriate dimensions
-    else:
-        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
-        dprofile_fourier = prof_fourier
+    assert dprofile_fourier.shape == (len(kvalues), hod_instance.Nm)
 
     dprof_term = pow(np.absolute(dprofile_fourier), 2)
 
@@ -241,14 +216,13 @@ def mlim_nprime_tinker(rscales, redshift=0, cosmo=ac.WMAP7, hod_instance=None,
 
 
 def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
-                          redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
-                          prof_fourier=None, mass_limit=None):
+                          dprofile_fourier=None, mass_limit=None):
     """
     This function computes the integral needed to get the 2-halo term
     in the HOD clustering model, at a particular value of the wavenumber 'k',
     or an array of k values.
-    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
-    NFW profile at each value of the mass.
+    We use the pro-computed Fourier-space density profiles, which have to
+    be passed to the function (dprofile_fourier).
     Following eq. (7) in 'model_definition.tex'
 
     Adapted to work efficiently for input 'k'arrays.
@@ -258,9 +232,6 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     pre-computed quantities in the hod and halo instances.
     We add the option of fixing a more restrictive upper mass limit, which is
     needed to implement halo exclusion.
-
-    Modified to have the option of providing pre-computed Fourier-space
-    density profiles.
     """
 
     # Check that the array quantities are properly set and
@@ -269,22 +240,7 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
-    # No profile provided, have to compute it here
-    if prof_fourier is None:
-        profile_instance = densprofile.HaloProfileNFW(
-            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
-            powesp_lin_0=powesp_lin_0)
-
-        # Compute the Fourier-space profile at all the scales 'kvalues'
-        # for all our mass values
-        # Output array will have shape (Nk, Nm), which is the correct one to
-        # pass to integration routine
-        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
-
-    # If given, have to check that it has appropriate dimensions
-    else:
-        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
-        dprofile_fourier = prof_fourier
+    assert dprofile_fourier.shape == (len(kvalues), hod_instance.Nm)
 
     dprof_term = np.absolute(dprofile_fourier)
 
@@ -307,13 +263,13 @@ def integral_2hterm_array(kvalues, hod_instance=None, halo_instance=None,
 def integral_2hterm_masslimarray(kvalues, hod_instance=None,
                                  halo_instance=None, redshift=0,
                                  cosmo=ac.WMAP7, powesp_lin_0=None,
-                                 prof_fourier=None, mass_limit=None):
+                                 dprofile_fourier=None, mass_limit=None):
     """
     This function computes the integral needed to get the 2-halo term
     in the HOD clustering model, at a particular value of the wavenumber 'k',
     or an array of k values.
-    Parameters 'redshift, cosmo, powep_lin_0' are needed to define the
-    NFW profile at each value of the mass.
+    We use the pro-computed Fourier-space density profiles, which have to
+    be passed to the function (dprofile_fourier).
     Following eq. (7) in 'model_definition.tex'
 
     This function is adapted to get as input an array of k-values
@@ -327,6 +283,8 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     assert hod_instance.Nm == halo_instance.Nm
     assert (hod_instance.mass_array == halo_instance.mass_array).all()
 
+    assert dprofile_fourier.shape == (len(kvalues), hod_instance.Nm)
+
     # If mass_limit==None, set it to the maximum mass in the arrays
     if mass_limit is None:
         mass_limit = hod_instance.mass_array[-1]
@@ -338,23 +296,6 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     # to the maximum mass in the mass array
     M_max = hod_instance.mass_array[-1]
     mass_limit = np.where(mass_limit < M_max, mass_limit, M_max)
-
-    # No profile provided, have to compute it here
-    if prof_fourier is None:
-        profile_instance = densprofile.HaloProfileNFW(
-            mass=hod_instance.mass_array, redshift=redshift, cosmo=cosmo,
-            powesp_lin_0=powesp_lin_0)
-
-        # Compute the Fourier-space profile at all the scales 'kvalues'
-        # for all our mass values
-        # Output array will have shape (Nk, Nm), which is the correct one to
-        # pass to integration routine
-        dprofile_fourier = profile_instance.profile_fourier(k=kvalues)
-
-    # If given, have to check that it has appropriate dimensions
-    else:
-        assert prof_fourier.shape == (len(kvalues), hod_instance.Nm)
-        dprofile_fourier = prof_fourier
 
     dprof_term = np.absolute(dprofile_fourier)
 
@@ -380,11 +321,15 @@ def integral_2hterm_masslimarray(kvalues, hod_instance=None,
     return integ_2hterm
 
 
-class HODClustering():
+class HODClustering(object):
     """
     Class that contains a full model for the galaxy clustering for
     a particular model, defined by
-    Cosmology+redshift+halo model+HOD model+NFW profile.
+    Cosmology+redshift+halo model+HOD model+ (modified) NFW profile.
+
+    When both parameters f_gal and gamma are equal to 1, we use a NFW
+    halo profile. Otherwise, we use the modified NFW profile defined in
+    Watson et al. (2010).
 
     The parameter 'scale_dep_bias' determines whether we use the
     scale dependence of halo bias proposed by Tinker et al. (2005) or not.
@@ -404,7 +349,7 @@ class HODClustering():
           Zheng (2004), as described in eqs. (B4-B9) in Tinker et al. (2005)
       - halo_exclusion_model = 2 (default): will correspond
           to Tinker et al. (2005) proposed model, as used by Coupon-2012
-          
+
     We associate a fixed array of r values to this object (which will be used
     for all xi(r) computations, so that, in the case of halo_exclusion_model=2
     we can pre-compute the values of P(r, M1, M2) needed for the calculation).
@@ -412,6 +357,7 @@ class HODClustering():
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
                  hod_instance=None, halo_instance=None, powesp_lin_0=None,
+                 f_gal=1.0, gamma=1.0,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
                  halo_exclusion_model=2, sph_hankel=None,
@@ -462,13 +408,32 @@ class HODClustering():
 
         # Create the profile instance, and pre-compute the Fourier-space
         # profile. Will compute it at the k values given by powesp_matter
-        self.densprofile = \
-            densprofile.HaloProfileNFW(mass=self.hod.mass_array,
-                                       redshift=self.redshift,
-                                       cosmo=self.cosmo,
-                                       powesp_lin_0=self.powesp_lin_0)
+        # Use NFW or modified profile depending on the values of f_gal, gamma
         self.kvals = self.powesp_matter.k
-        self.dprofile_fourier = self.densprofile.profile_fourier(k=self.kvals)
+
+        self.f_gal = f_gal
+        self.gamma = gamma
+
+        if (self.f_gal == 1) and (self.gamma == 1):
+            self.modify_NFW = False
+            self.densprofile = \
+                densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                           redshift=self.redshift,
+                                           cosmo=self.cosmo,
+                                           powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.profile_fourier(k=self.kvals)
+        else:
+            self.modify_NFW = True
+            self.densprofile = \
+                densprofile.HaloProfileModNFW(mass=self.hod.mass_array,
+                                              f_gal=self.f_gal,
+                                              gamma=self.gamma,
+                                              redshift=self.redshift,
+                                              cosmo=self.cosmo,
+                                              powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.mod_profile_fourier(k=self.kvals)
 
         # Stuff related to the scales array and pre-computation of the
         # probability of no overlapping array
@@ -478,6 +443,15 @@ class HODClustering():
             self.get_p_no_overlap()
         else:
             self.p_no_overlap = None
+
+        # Also, given the scales array, compute the corresponding normalised
+        # configuration-space halo density profile(s)
+        if self.modify_NFW:
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+        else:
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
 
     def get_p_no_overlap(self):
         """
@@ -530,6 +504,55 @@ class HODClustering():
         else:
             self.p_no_overlap = None
 
+        if self.modify_NFW:
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+        else:
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
+
+    def update_profile_params(self, f_gal, gamma):
+        """
+        Function to update only the parameters defining the Modified NFW
+        profile for the HODClustering object.
+        Avoid the need to re-read other parameters when we only want to change
+        the profile paraemeters (most common case, e.g. for fitting).
+        """
+
+        self.f_gal = f_gal
+        self.gamma = gamma
+
+        # Set the profile object and compute at once both the Fourier-space
+        # and configuration space profiles
+        if (self.f_gal == 1) and (self.gamma == 1):
+            self.modify_NFW = False
+            self.densprofile = \
+                densprofile.HaloProfileNFW(mass=self.hod.mass_array,
+                                           redshift=self.redshift,
+                                           cosmo=self.cosmo,
+                                           powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.profile_fourier(k=self.kvals)
+            self.dprofile_config = \
+                self.densprofile.profile_config_norm(r=self.rvalues)
+        else:
+            self.modify_NFW = True
+            self.densprofile = \
+                densprofile.HaloProfileModNFW(mass=self.hod.mass_array,
+                                              f_gal=self.f_gal,
+                                              gamma=self.gamma,
+                                              redshift=self.redshift,
+                                              cosmo=self.cosmo,
+                                              powesp_lin_0=self.powesp_lin_0)
+            self.dprofile_fourier = \
+                self.densprofile.mod_profile_fourier(k=self.kvals)
+            self.dprofile_config = \
+                self.densprofile.mod_profile_config_norm(r=self.rvalues)
+
+        # We will need to re-compute all clustering terms, so reset them
+        self.pk_satsat = None
+        self.pk_2h = None
+
     def xi_centsat(self):
         """
         Computes the xi for the central-satellite term at the scales
@@ -540,10 +563,10 @@ class HODClustering():
             integral_centsatterm_array(rvalues=self.rvalues,
                                        hod_instance=self.hod,
                                        halo_instance=self.halomodel,
+                                       dprofile_config=self.dprofile_config,
+                                       use_mvir_limit=self.use_mvir_limit,
                                        redshift=self.redshift,
-                                       cosmo=self.cosmo,
-                                       powesp_lin_0=self.powesp_lin_0,
-                                       use_mvir_limit=self.use_mvir_limit)
+                                       cosmo=self.cosmo)
 
         xir_cs = (2.*int_cs_r/pow(self.gal_dens, 2)) - 1.
 
@@ -560,10 +583,7 @@ class HODClustering():
             integral_satsatterm_array(kvalues=kvalues,
                                       hod_instance=self.hod,
                                       halo_instance=self.halomodel,
-                                      redshift=self.redshift,
-                                      cosmo=self.cosmo,
-                                      powesp_lin_0=self.powesp_lin_0,
-                                      prof_fourier=self.dprofile_fourier)
+                                      dprofile_fourier=self.dprofile_fourier)
 
         pkvals = int_ss_k/pow(self.gal_dens, 2.)
 
@@ -600,10 +620,7 @@ class HODClustering():
         int_2h_k = integral_2hterm_array(kvalues=kvalues,
                                          hod_instance=self.hod,
                                          halo_instance=self.halomodel,
-                                         redshift=self.redshift,
-                                         cosmo=self.cosmo,
-                                         powesp_lin_0=self.powesp_lin_0,
-                                         prof_fourier=self.dprofile_fourier)
+                                         dprofile_fourier=self.dprofile_fourier)
         pkvals = self.powesp_matter.pk*pow(int_2h_k/self.gal_dens, 2)
 
         self.pk_2h = PowerSpectrum(kvals=kvalues, pkvals=pkvals)
@@ -624,11 +641,8 @@ class HODClustering():
         int_2h_k = integral_2hterm_array(kvalues=kvalues,
                                          hod_instance=self.hod,
                                          halo_instance=self.halomodel,
-                                         redshift=self.redshift,
-                                         cosmo=self.cosmo,
-                                         powesp_lin_0=self.powesp_lin_0,
                                          mass_limit=mass_lim,
-                                         prof_fourier=self.dprofile_fourier)
+                                         dprofile_fourier=self.dprofile_fourier)
 
         # Now, compute P(k) taking into account the modified galaxy density
         pkvals = self.powesp_matter.pk*pow(int_2h_k/nprime, 2)
@@ -655,11 +669,8 @@ class HODClustering():
             integral_2hterm_masslimarray(kvalues=kvalues,
                                          hod_instance=self.hod,
                                          halo_instance=self.halomodel,
-                                         redshift=self.redshift,
-                                         cosmo=self.cosmo,
-                                         powesp_lin_0=self.powesp_lin_0,
                                          mass_limit=masslimvals,
-                                         prof_fourier=self.dprofile_fourier)
+                                         dprofile_fourier=self.dprofile_fourier)
 
         # And now, get the factor that should multiply the matter power
         # spectrum in each case.
@@ -786,6 +797,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         powesp_linz0_file="test/WMAP7_linz0_matterpower.dat",
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
+                        f_gal=1.0, gamma=1.0,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
                         halo_exclusion_model=2, use_tinker_bias_params=True,
@@ -868,6 +880,7 @@ Are you sure that is what you really want?")
         HODClustering(redshift=redshift, cosmo=cosmo_object,
                       powesp_matter=pk_matter_object, hod_instance=hod_object,
                       halo_instance=halo_object, powesp_lin_0=pk_linz0_object,
+                      f_gal=f_gal, gamma=gamma,
                       logM_min=logM_min, logM_max=logM_max,
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,

@@ -54,28 +54,72 @@ def get_hod_from_params(hod_params, hod_type=1):
     return new_hod
 
 
-def wp_hod(rp, hod_params, clustobj=None, hod_type=1, nr=100, pimin=0.001,
-           pimax=400, npi=100):
+def ndim_from_hod_type(hod_type=1):
+    """
+    Function to obtain the number of dimensions (parameters) for the HOD
+    part of the fit, depending on the HOD type.
+    For the moment only hod_type=1 (Kravtsov) and hod_type=2 (Zheng) are
+    implemented.
+    """
+
+    if hod_type == 1:
+        return 3
+    elif hod_type == 2:
+        return 5
+    else:
+        raise RuntimeError("Only implemented values of HOD_type are 1 or 2")
+
+
+def wp_hod(rp, fit_params, clustobj=None, hod_type=1, fit_f_gal=False,
+           fit_gamma=False, nr=100, pimin=0.001, pimax=400, npi=100):
     """
     Basic function to compute wp(rp) for likelihood computations.
 
     Will use the parameters of the model defined in 'clustobj', which is an
     instance of a HODClustering class, except for the parameters of the HOD,
-    which we assume that will be changing between likelihood calls.
+    and potentially of the ModifiedNFW profile, which we assume that will be
+    changing between likelihood calls.
     Mass parameters in HOD are assumed to be given as log10(M_x).
+    Parameter f_gal is also assumed to be given as log10(f_gal).
 
     We allow the use of different HOD parameterisations using the 'hod_type'
     parameter (same options as in HODModel class).
+    The parameters fit_f_gal, fit_gamma define whether we are fitting for
+    the respective parameters (and thus their values are included in
+    fit_params). If none of these are fitted for, we just keep the default
+    profile in clustobj, which we assume will be a NFW.
 
     Together with the wp, we also return the galaxy density for this model,
     so that it can be also used for the likelihood.
     """
 
+    # First, figure out what are the contents of fit_params
+    n_dim_hod = ndim_from_hod_type(hod_type)
+    n_dim_prof = fit_f_gal + fit_gamma
+    assert len(fit_params) == n_dim_hod + n_dim_prof
+
     # First, define the new HOD given the parameters
+    hod_params = fit_params[:n_dim_hod]
     new_hod = get_hod_from_params(hod_params, hod_type)
 
-    # Now, update the hodclustering object
+    # Now, update the hodclustering object for the new HOD parameters
     clustobj.update_hod(new_hod)
+
+    # If needed, also update the hodclustering object for the new profile
+    # parameters
+    if n_dim_prof > 0:
+        if fit_f_gal:
+            # The parameter we actually fit is log10(f_gal)
+            f_gal = 10**fit_params[n_dim_hod]
+        else:
+            f_gal = 1.0   # NFW value
+
+        if fit_gamma:
+            gamma = fit_params[-1]
+        else:
+            gamma = 1.0   # NFW value
+
+        clustobj.update_profile_params(f_gal, gamma)
 
     # And compute the wp values (use default values for the details)
     return clustering.get_wptotal(
@@ -94,58 +138,97 @@ def chi2_fullmatrix(data_vals, inv_covmat, model_predictions):
     return np.dot(y_diff, np.dot(inv_covmat, y_diff))
 
 
-def lnprior_flat(hod_params, param_lims, hod_type=1):
+def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
+                 fit_gamma=False):
     """
-    Returns the (un-normalised) log(P) for a flat prior on the HOD parameters.
+    Returns the (un-normalised) log(P) for a flat prior on the HOD parameters
+    and, if needed, on the ModNFW profile parameters.
     Mass parameters are assumed to be given as log10(M_x) (so the prior will
     be flat on the latter), alpha and sigma_logM are assumed to be given
-    directly.
+    directly. 
+    For the profile parameters, f_gal is assumed to be given as log10(f_gal),
+    while gamma is assumed to be given directly.
 
     We allow the use of different HOD parameterisations using the 'hod_type'
-    parameter (same options as in HODModel class).
+    parameter (same options as in HODModel class), and to decide whether
+    f_gal and gamma are included through the use of fit_f_gal, fit_gamma.
     """
+
+    # First, figure out what are the contents of fit_params
+    # and of param_lims
+    n_dim_hod = ndim_from_hod_type(hod_type)
+    n_dim_prof = fit_f_gal + fit_gamma
+    assert len(fit_params) == n_dim_hod + n_dim_prof
+    assert len(param_lims) == 2*len(fit_params)
+
+    # Get the part of the prior corresponding to the HOD parameters
+    hod_params = fit_params[:n_dim_hod]
+    hod_param_lims = param_lims[:2*n_dim_hod]
 
     if hod_type == 1:
         logMmin, logM1, alpha = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
-            alpha_min, alpha_max = param_lims
+            alpha_min, alpha_max = hod_param_lims
 
         if logMm_min < logMmin < logMm_max and \
            logM1_min < logM1 < logM1_max and \
            alpha_min < alpha < alpha_max:
-            return 0.0
+            lnprior_hod = 0.0
         else:
-            return -np.inf
+            lnprior_hod = -np.inf
 
     elif hod_type == 2:
         logMmin, logM1, alpha, siglogM, logM0 = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
             alpha_min, alpha_max, siglogM_min, siglogM_max, \
-            logM0_min, logM0_max = param_lims
+            logM0_min, logM0_max = hod_param_lims
 
         if logMm_min < logMmin < logMm_max and \
            logM1_min < logM1 < logM1_max and \
            alpha_min < alpha < alpha_max and \
            siglogM_min < siglogM < siglogM_max and \
            logM0_min < logM0 < logM0_max:
-            return 0.0
+            lnprior_hod = 0.0
         else:
-            return -np.inf
+            lnprior_hod = -np.inf
 
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
                          % hod_type)
 
+    # Get the part of the prior corresponding to the ModNFW profile parameters
+    lnprior_prof = 0.0
+    if fit_f_gal:
+        log_fgal = fit_params[n_dim_hod]
+        log_fgal_min, log_fgal_max = param_lims[2*n_dim_hod:(2*n_dim_hod)+2]
+        if log_fgal_min < log_fgal < log_fgal_max:
+            lnprior_prof += 0.0
+        else:
+            lnprior_prof += -np.inf
 
-def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
-                            hod_type=1, nr=100, pimin=0.001, pimax=400,
+    if fit_gamma:
+        gamma = fit_params[-1]
+        gamma_min, gamma_max = param_lims[-2:]
+        if gamma_min < gamma < gamma_max:
+            lnprior_prof += 0.0
+        else:
+            lnprior_prof += -np.inf
+
+    # Return the total prior
+    return lnprior_hod + lnprior_prof
+
+
+def lnlikelihood_fullmatrix(fit_params, rp, wp, wp_icov, clustobj=None,
+                            hod_type=1, fit_f_gal=False, fit_gamma=False,
+                            nr=100, pimin=0.001, pimax=400,
                             npi=100, fit_density=0, data_dens=None,
                             data_dens_err=None, data_logdens=None,
                             data_logdens_err=None):
     """
     Computes the (un-normalised) log-likelihood of the data wp(rp) given
-    its inverse covariance matrix, and the given values of the HOD parameters.
+    its inverse covariance matrix, and the given values of the HOD and
+    profile parameters.
 
     The rest of the parameters of the model are set in 'clustobj', which
     is an instance of the HODClustering class.
@@ -154,7 +237,8 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
     use the full covariances.
 
     We allow the use of different HOD parameterisations using the 'hod_type'
-    parameter (same options as in HODModel class).
+    parameter (same options as in HODModel class), and to indicate which
+    of the profile parameters are fitted for.
 
     We allow also for the inclusion of the galaxy density as part of the
     likelihood computation. The way in which this is done is controlled by
@@ -168,8 +252,9 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
             parameters data_logdens and data_logdens_err
     """
 
-    wp_model, model_gal_dens = wp_hod(rp=rp, hod_params=hod_params,
+    wp_model, model_gal_dens = wp_hod(rp=rp, fit_params=fit_params,
                                       clustobj=clustobj, hod_type=hod_type,
+                                      fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                                       nr=nr, pimin=pimin, pimax=pimax, npi=npi)
 
     if fit_density == 0:
@@ -190,8 +275,9 @@ def lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov, clustobj=None,
         chi2_density)
 
 
-def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
-                hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100,
+def lnposterior(fit_params, rp, wp, wp_icov, param_lims, clustobj=None,
+                hod_type=1, fit_f_gal=False, fit_gamma=False,
+                nr=100, pimin=0.001, pimax=400, npi=100,
                 fit_density=0, data_dens=None, data_dens_err=None,
                 data_logdens=None, data_logdens_err=None):
     """
@@ -206,13 +292,14 @@ def lnposterior(hod_params, rp, wp, wp_icov, param_lims, clustobj=None,
       parameter (same options as in HODModel class).
     """
 
-    lp = lnprior_flat(hod_params, param_lims, hod_type)
+    lp = lnprior_flat(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
 
     if not np.isfinite(lp):
         return -np.inf
     else:
-        return lp + lnlikelihood_fullmatrix(hod_params, rp, wp, wp_icov,
-                                            clustobj, hod_type, nr, pimin,
+        return lp + lnlikelihood_fullmatrix(fit_params, rp, wp, wp_icov,
+                                            clustobj, hod_type, fit_f_gal,
+                                            fit_gamma, nr, pimin,
                                             pimax, npi, fit_density, data_dens,
                                             data_dens_err, data_logdens,
                                             data_logdens_err)
@@ -253,14 +340,15 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
     return rp, wp, wperr, wp_covmatrix
 
 
-def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
+def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
                   return_model=False, minim_method='Powell', clustobj=None,
-                  hod_type=1, nr=100, pimin=0.001, pimax=400, npi=100,
+                  hod_type=1, fit_f_gal=False, fit_gamma=False,
+                  nr=100, pimin=0.001, pimax=400, npi=100,
                   fit_density=0, data_dens=None, data_dens_err=None,
                   data_logdens=None, data_logdens_err=None):
     """
-    Function to obtain the best-fit values of the HOD parameters, obtaining
-    the maximum of the posterior function (equivalent to the maximum
+    Function to obtain the best-fit values of the HOD (+ profile) parameters,
+    obtaining the maximum of the posterior function (equivalent to the maximum
     likelihood result when using flat priors).
 
     The maximization is done using standard scipy.optimize functions.
@@ -269,10 +357,10 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
 
     The output of the function is defined by return_model:
     * If return_model==False:
-        Just return a tuple containing the HOD parameter values for the best
-        fit
+        Just return a tuple containing the HOD (+ profile) parameter values
+        for the best fit
     * If return_model==True:
-        Returns (hod_params_best, best_model), where best_model is a tuple
+        Returns (fit_params_best, best_model), where best_model is a tuple
         containing some characteristics of the best-fit model:
         (wp_array, galaxy_density, mean_halo_mass, mean_galaxy_bias, frac_sat)
     """
@@ -282,9 +370,10 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
 
     # Now, do the actual minimization calling the function
     maxpost_result = \
-        optimize.minimize(fun=neglogposterior, x0=hod_params_start,
+        optimize.minimize(fun=neglogposterior, x0=fit_params_start,
                           args=(rp, wp, wp_icov, param_lims, clustobj,
-                                hod_type, nr, pimin, pimax, npi, fit_density,
+                                hod_type, fit_f_gal, fit_gamma,
+                                nr, pimin, pimax, npi, fit_density,
                                 data_dens, data_dens_err, data_logdens,
                                 data_logdens_err),
                           method=minim_method)
@@ -294,12 +383,19 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
     print maxpost_result
 
     # Get the best parameters values for output
-    hod_params_best = maxpost_result['x']
+    fit_params_best = maxpost_result['x']
 
     # Now, if needed, get other results for this model
     if return_model:
-        wp_best, galdens_best = wp_hod(rp, hod_params_best, clustobj, hod_type,
+        wp_best, galdens_best = wp_hod(rp, fit_params_best, clustobj,
+                                       hod_type, fit_f_gal, fit_gamma,
                                        nr, pimin, pimax, npi)
+
+        # Get the part of the parameters that actually correspond to HOD
+        # parameters
+        n_dim_hod = ndim_from_hod_type(hod_type)
+        hod_params_best = fit_params_best[:n_dim_hod]
+
         # Define HOD object for the best fit, and initialise the mass
         # array using the clustobj mass array.
         # TODO: can we refactor to avoid this? Do we really need a mass
@@ -319,12 +415,12 @@ def find_best_fit(hod_params_start, rp, wp, wp_icov, param_lims,
             hodmodel.fraction_satellites_array(hod_instance=hod_best,
                                                halo_instance=clustobj.halomodel)
 
-        return hod_params_best, (wp_best, galdens_best,
+        return fit_params_best, (wp_best, galdens_best,
                                  meanhalomass_best, meangalbias_best,
                                  fracsat_best)
 
     else:
-        return hod_params_best
+        return fit_params_best
 
 
 def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
@@ -367,6 +463,7 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
             positions[:, i] = (d_max - d_min)*positions[:, i] + d_min
 
     elif init_type == 1:
+        # TODO: use function for this provided in recent versions of emcee
         assert len(central_position) == n_dimensions
         assert len(ball_size) == n_dimensions
 
@@ -385,6 +482,7 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
 
 
 def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
+             fit_f_gal=False, fit_gamma=False,
              nr=100, pimin=0.001, pimax=400, npi=100,
              init_type=0, cent_pos=None, ball_size=None,
              n_walkers=100, n_steps_per_walker=100, n_threads=1,
@@ -398,6 +496,9 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
 
     TODO: implement option to return also derived quantities for each sample
           in the chain
+
+    TODO: obtain also relevant properties of the chains to diagnose
+          convergence (acceptance fraction, acorr, etc.)
     """
 
     # First, check if file already exists (and is not emtpy!)
@@ -411,16 +512,30 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     # Depending on HOD type considered, get number of dimensions,
     # and header for the output file
     if hod_type == 1:
-        n_dimensions = 3
-        header = "walker logMmin logM1 alpha\n"
+        n_dim_hod = 3
+        header_hod = "walker logMmin logM1 alpha "
 
     elif hod_type == 2:
-        n_dimensions = 5
-        header = "walker logMmin logM1 alpha siglogM logM0\n"
+        n_dim_hod = 5
+        header_hod = "walker logMmin logM1 alpha siglogM logM0 "
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
                          % hod_type)
+
+    # Depending on profile parameters to fit, get additional no. of dimensions
+    # and additional columns in header
+    n_dim_prof = 0
+    header_prof = ""
+    if fit_f_gal:
+        n_dim_prof += 1
+        header_prof += "log_fgal "
+    if fit_gamma:
+        n_dim_prof += 1
+        header_prof += "gamma "
+
+    n_dimensions = n_dim_hod + n_dim_prof
+    header = header_hod + header_prof + "\n"
 
     # Write header to output file (so we make sure it exists later!)
     f = open(out_chain_file, 'w')
@@ -440,7 +555,8 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
         emcee.EnsembleSampler(nwalkers=n_walkers, dim=n_dimensions,
                               lnpostfn=lnposterior, threads=n_threads,
                               args=(rp, wp, wp_icov, param_lims, clustobj,
-                                    hod_type, nr, pimin, pimax, npi,
+                                    hod_type, fit_f_gal, fit_gamma,
+                                    nr, pimin, pimax, npi,
                                     fit_density, data_dens, data_dens_err,
                                     data_logdens, data_logdens_err))
 
@@ -626,7 +742,8 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
                       plot_file="compplot.default.png",
                       n_burn=50, maxlike_values=None, n_params=None,
                       rp_ext=None, wp_ext=None, wperr_ext=None,
-                      clustobj=None, hod_type=1, nr=100, pimin=0.001,
+                      clustobj=None, hod_type=1, fit_f_gal=False,
+                      fit_gamma=False, nr=100, pimin=0.001,
                       pimax=400, npi=100):
     """
     Draw a plot of wp(rp) comparing the data with a sampling of the allowed
@@ -667,16 +784,18 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
                                           size=n_samples_plot), :n_params]:
 
         ax.plot(rp_models,
-                wp_hod(rp=rp_models, hod_params=params, clustobj=clustobj,
-                       hod_type=hod_type, nr=nr, pimin=pimin, pimax=pimax,
+                wp_hod(rp=rp_models, fit_params=params, clustobj=clustobj,
+                       hod_type=hod_type, fit_f_gal=fit_f_gal,
+                       fit_gamma=fit_gamma, nr=nr, pimin=pimin, pimax=pimax,
                        npi=npi)[0],
                 color='k', alpha=0.1)
 
     # Now, if given, plot the maximum-likelihood model
     if maxlike_values is not None:
         ax.plot(rp_models,
-                wp_hod(rp=rp_models, hod_params=maxlike_values,
-                       clustobj=clustobj, hod_type=hod_type, nr=nr,
+                wp_hod(rp=rp_models, fit_params=maxlike_values,
+                       clustobj=clustobj, hod_type=hod_type,
+                       fit_f_gal=fit_f_gal, fit_gamma=fit_gamma, nr=nr,
                        pimin=pimin, pimax=pimax, npi=npi)[0],
                 'b-', lw=2, label='Best fit')
 
@@ -831,7 +950,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Read in the parameters defining the HOD model to fit
     hod_type = config.getint('HODModel', 'HOD_type')
     if hod_type == 1:
-        n_dim_model = 3
+        n_dim_hod_model = 3
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
@@ -844,7 +963,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims
 
     elif hod_type == 2:
-        n_dim_model = 5
+        n_dim_hod_model = 5
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
@@ -865,6 +984,35 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     else:
         raise ValueError("Allowed values of HOD_type are 1 or 2")
+
+    # Read in the parameters defining the possible additional fit to the 
+    # profile parameters
+    n_dim_prof_model = 0
+    prof_param_init = []
+    prof_param_lims = []
+    
+    fit_f_gal = config.getboolean('ModNFWModel', 'fit_f_gal')
+    if fit_f_gal:
+        n_dim_prof_model += 1
+        log_fgal_init = config.getfloat('ModNFWModel', 'log_fgal_init')
+        log_fgal_lims = map(float,
+                         config.get('ModNFWModel', 'log_fgal_limits').split())
+        prof_param_init += [log_fgal_init]
+        prof_param_lims += log_fgal_lims
+        
+    fit_gamma = config.getboolean('ModNFWModel', 'fit_gamma')
+    if fit_gamma:
+        n_dim_prof_model += 1
+        gamma_init = config.getfloat('ModNFWModel', 'gamma_init')
+        gamma_lims = map(float,
+                         config.get('ModNFWModel', 'gamma_limits').split())
+        prof_param_init += [gamma_init]
+        prof_param_lims += gamma_lims
+        
+    # Put together all the parameters that we will try to fit
+    n_dim_model = n_dim_hod_model + n_dim_prof_model
+    fit_param_init = hod_param_init + prof_param_init
+    fit_param_lims = hod_param_lims + prof_param_lims
 
     # Read in parameters related to the Cosmology to be used, and to
     # details of how to do the calculations
@@ -896,12 +1044,15 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     #
     # Will use the defaults for many parameters (actual HOD parameters are not
     # relevant here)
+    # We always set here the ModNFW parameter to the NFW case (and will 
+    # modify these later if needed)
     hod_clust =\
         clustering.hod_from_parameters(redshift=redshift, OmegaM0=omega_matter,
                                        OmegaL0=omega_lambda,
                                        powesp_matter_file=pk_matter_z_file,
                                        powesp_linz0_file=pk_lin_z0_file,
-                                       hod_type=hod_type, logM_min=logMmin,
+                                       hod_type=hod_type, f_gal=1.0, 
+                                       gamma=1.0, logM_min=logMmin,
                                        logM_max=logMmax, logM_step=logMstep,
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,
                                        rlog=True,
@@ -910,9 +1061,10 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Now, we start the fun! First, get the best-fit model using Scipy
     # minimisation methods
     bestfit_params, bestfit_derived =\
-        find_best_fit(hod_params_start=hod_param_init, rp=rpsel, wp=wpsel,
-                      wp_icov=icovmat_sel, param_lims=hod_param_lims,
+        find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
+                      wp_icov=icovmat_sel, param_lims=fit_param_lims,
                       return_model=True, clustobj=hod_clust, hod_type=hod_type,
+                      fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                       nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
                       pimax=wpcalc_pimax, fit_density=fit_density,
                       data_dens=data_dens, data_dens_err=data_dens_err,
@@ -972,7 +1124,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     # Now, actually run the MCMC
     run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
-             param_lims=hod_param_lims, clustobj=hod_clust, hod_type=hod_type,
+             param_lims=fit_param_lims, clustobj=hod_clust, hod_type=hod_type,
+             fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
              nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
              npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
              ball_size=ball_size, n_walkers=n_walkers,
@@ -1014,6 +1167,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                       plot_file=f_compplot_out, n_burn=n_burn_in,
                       maxlike_values=bestfit_params, rp_ext=rp, wp_ext=wp,
                       wperr_ext=wperr, clustobj=hod_clust, hod_type=hod_type,
+                      fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                       nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
                       npi=wpcalc_npi)
 

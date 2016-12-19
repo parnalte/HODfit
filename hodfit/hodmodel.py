@@ -20,7 +20,7 @@ import astropy.cosmology as ac
 import densprofile
 
 
-class HODModel():
+class HODModel(object):
     """
     Class that defines an HOD model, i.e. mean number of central and satellite
     galaxies per halo, as function of halo mass

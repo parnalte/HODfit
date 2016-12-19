@@ -149,7 +149,7 @@ def nu_variable(mass=1e10, redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
     return dc/(Dz*sig)
 
 
-class HaloModelMW02():
+class HaloModelMW02(object):
     """Class that contains all the functions related to the halo model defined
        in MW02 (in particular eqs. 14,19), for a given cosmology
        (and parameters).

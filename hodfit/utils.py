@@ -182,7 +182,7 @@ def xir2wp_pi(rpvals, rvals, xivals, logpimin=-4, logpimax=3, npi=500):
                             logpimax=logpimax, npi=npi)
 
 
-class PowerSpectrum:
+class PowerSpectrum(object):
     """Simple class to contain a power spectrum sampled at a set of
        given values of the wavenumber k
     """

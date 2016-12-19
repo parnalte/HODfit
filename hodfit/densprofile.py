@@ -131,7 +131,81 @@ def rhos_from_charact(mass=1e10, rvir=1.0, conc=10.0):
     return rho_s
 
 
-class HaloProfileNFW():
+def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
+    """
+    Function that returns the standard NFW profile in configuration space
+    (as function of scale 'rvals'), given the basic parameters
+    rho_s (normalization), r_s (characteristic scale) and rvir (virial radius).
+
+    We truncate the resulting profile at r=rvir.
+
+    Assume that rho_s and r_s are arrays of length Nm, corresponding to Nm
+    different haloes of several masses.
+
+    Returns an array of shape (Nr, Nm), where Nr is the length of rvals.
+    """
+
+    rvals = np.atleast_1d(rvals)
+    assert rvals.ndim == 1
+
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert len(rho_s) == len(r_s)
+
+    fact1 = np.outer(rvals, 1./r_s)
+    fact2 = pow(1. + fact1, 2.0)
+    rho_h = rho_s/(fact1*fact2)
+
+    rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
+    rho_h[rvals_grid > rvir_grid] = 0
+    return rho_h
+
+
+def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
+    """
+    Function that returns the standard NFW profile in Fourier space
+    (as function of wavenumber 'kvals'), given the basic parameters
+    of the haloes.
+
+    We take this from eq. (81) in CS02, so it already takes into account
+    the truncation of the halo.
+
+    Assume that mass, rho_s, r_s and conc are arrays of length Nm,
+    corresponding to Nm different haloes of several masses.
+
+    Returns an array of shape (Nk, Nm), where Nk is the length of kvals.
+    """
+
+    kvals = np.atleast_1d(kvals)
+    assert kvals.ndim == 1
+
+    mass = np.atleast_1d(mass)
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert conc.ndim == 1
+    assert len(mass) == len(rho_s) == len(r_s) == len(conc)
+
+    # Need to compute the sine and cosine integrals
+    si_ckr, ci_ckr = spc.sici(np.outer(kvals, (1. + conc) * r_s))
+    si_kr, ci_kr = spc.sici(np.outer(kvals, r_s))
+
+    fact1 = np.sin(np.outer(kvals, r_s)) * (si_ckr - si_kr)
+    fact2 = np.sin(np.outer(kvals, conc * r_s)) / \
+        (np.outer(kvals, (1. + conc) * r_s))
+    fact3 = np.cos(np.outer(kvals, r_s)) * (ci_ckr - ci_kr)
+
+    uprof = 4.*np.pi*(rho_s / mass) * pow(r_s, 3.) * (fact1 - fact2 + fact3)
+
+    return uprof
+
+
+class HaloProfileNFW(object):
     """Class that describes a Navarro-Frenk-White profile for a halo of a given
        mass, and for a given cosmology and redshift.
     """
@@ -185,13 +259,22 @@ class HaloProfileNFW():
            of scales given as input.
         """
 
-        r = np.atleast_1d(r)
-        assert r.ndim == 1
+        return profile_NFW_config_parameters(r, self.rho_s, self.r_s,
+                                             self.rvir)
 
-        fact1 = np.outer(r, 1./self.r_s)
-        fact2 = pow(1. + fact1, 2.0)
-        rho_h = self.rho_s/(fact1*fact2)
-        return rho_h
+    def profile_config_norm(self, r):
+        """
+        Returns the *normalized* halo density profile in configuration space,
+        as function of the scale r (can be an array).
+
+        This normalized profile is the one needed for the calculation of the
+        central-satellite term.
+
+        Returns an array of shape (Nr, Nmass), where Nr si the number of scales
+        given as input.
+        """
+
+        return self.profile_config(r)/self.mass
 
     def profile_fourier(self, k):
         """Returns the normalised halo density profile in Fourier space,
@@ -202,16 +285,96 @@ class HaloProfileNFW():
            of scales given as input.
         """
 
-        # Need to compute the sine and cosine integrals
-        si_ckr, ci_ckr = spc.sici(np.outer(k, (1.+self.conc)*self.r_s))
-        si_kr, ci_kr = spc.sici(np.outer(k, self.r_s))
+        return profile_NFW_fourier_parameters(k, self.mass, self.rho_s,
+                                              self.r_s, self.conc)
 
-        fact1 = np.sin(np.outer(k, self.r_s))*(si_ckr - si_kr)
-        fact2 = np.sin(np.outer(k, self.conc*self.r_s)) /\
-            (np.outer(k, (1. + self.conc)*self.r_s))
-        fact3 = np.cos(np.outer(k, self.r_s))*(ci_ckr - ci_kr)
 
-        uprof = 4.*np.pi*(self.rho_s/self.mass)*pow(self.r_s, 3.) *\
-            (fact1 - fact2 + fact3)
+class HaloProfileModNFW(HaloProfileNFW):
+    """
+    Class that describes a *modified* Navarro-Frenk-White profile for a halo
+    of a given mass, with additional free parameters f_gal and gamma
+    following the model of Watson et al. (2010).
 
-        return uprof
+    For now, only the addition of f_gal is implemented.
+
+    We inherit from the class corresponding to the standard NFW profile.
+    """
+
+    def __init__(self, mass=1e10, f_gal=1.0, gamma=1.0,
+                 redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
+                 c_zero=11.0, beta=0.13,
+                 logM_min=10.0, logM_max=16.0, logM_step=0.05):
+        """
+        Parameters defining the NFW halo profile:
+
+        mass: mass of the halo (in M_sol) -- float or array of floats
+        f_gal: relation between galaxy concentration and DM concentration
+               For NFW, f_gal=1
+        gamma (NOT implemented): inner slope of the density profile
+               For NFW, gamma=1
+        redshift -- float
+        cosmo: an astropy.cosmology object defining the cosmology
+        powesp_lin_0: a PowerSpectrum object containing the z=0 linear power
+                      spectrum corresponding to this same cosmology
+        c_zero, beta: parameters for the concentration relation.
+                      Probably best to leave at the default values
+        logM_min, logM_max, logM_step: parameters of the mass array used in
+                      the calculation of M_star (needed for the concentration)
+
+        Class adapted to work for an array of masses, not only a single value
+        """
+
+        # Call initialization from parent
+        super(HaloProfileModNFW, self).__init__(mass=mass, redshift=redshift,
+            cosmo=cosmo, powesp_lin_0=powesp_lin_0, c_zero=c_zero, beta=beta,
+            logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
+
+        # Add the galaxy concentration
+        self.f_gal = f_gal
+        self.conc_gal = self.conc*self.f_gal
+
+        # And modified parameters that depend on the concentration
+        self.r_s_gal = self.rvir/self.conc_gal
+        self.rho_s_gal = rhos_from_charact(mass=self.mass, rvir=self.rvir,
+                                           conc=self.conc_gal)
+
+    def mod_profile_config(self, r):
+        """
+        Returns the halo *galaxy* density profile in configuration space,
+        for the *modified* NFW case, as function of the scale r (can be an
+        array).
+
+        Returns an array of shape (Nr, Nmass), where Nr is the number of
+        scales given as input.
+        """
+
+        return profile_NFW_config_parameters(r, self.rho_s_gal,
+                                             self.r_s_gal, self.rvir)
+
+    def mod_profile_config_norm(self, r):
+        """
+        Returns the *normalized* halo *galaxy* density profile in
+        configuration space, for the *modified* NFW case, as function of
+        the scale r (can be an array).
+
+        This normalized profile is the one needed for the calculation of
+        the central-satellite term.
+
+        Returns an array of shape (Nr, Nmass), where Nr is the number of
+        scales given as input.
+        """
+
+        return self.mod_profile_config(r)/self.mass
+
+    def mod_profile_fourier(self, k):
+        """
+        Returns the normalised halo *galaxy* density profile in Fourier
+        space, for the *modified* NFW case, as function of the wavenumber
+        k (can be an array).
+
+        Returns an array of shape (Nk, Nmass), where Nk is the number
+        of scales given as input.
+        """
+
+        return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
+                                              self.r_s_gal, self.conc_gal)
