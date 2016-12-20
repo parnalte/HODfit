@@ -17,6 +17,7 @@ import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
 from scipy import integrate
+from scipy.interpolate import UnivariateSpline
 
 import halomodel
 from utils import RHO_CRIT_UNITS
@@ -205,6 +206,8 @@ def integrand_unnorm(r, r_s, rvir, gamma):
     Integrand function needed for the integral performed in
     rhos_from_charact_modNFW , to obtain the mass corresponding to an
     unnormalized ModNFW profile.
+
+    Returns an array of shape (Nm, Nr).
     """
     r_s = np.atleast_1d(r_s)
     rvir = np.atleast_1d(rvir)
@@ -215,7 +218,7 @@ def integrand_unnorm(r, r_s, rvir, gamma):
 
     rho_u = profile_ModNFW_config_parameters(rvals=r, rho_s=np.ones(Nm),
                                              r_s=r_s, rvir=rvir, gamma=gamma)
-    return 4*np.pi*r*r*rho_u
+    return 4*np.pi*r*r*rho_u.T
 
 
 def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
@@ -226,14 +229,53 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
 
     We do this for the generalized NFW profile, so we do the integral of the
     profile numerically to get the normalization.
-
-    TODO: Make this work when mass/rvir/conc are arrays of length Nm!!
     """
 
+    mass = np.atleast_1d(mass)
+    rvir = np.atleast_1d(rvir)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rvir.ndim == 1
+    assert conc.ndim == 1
+    Nm = len(mass)
+    assert Nm == len(rvir) == len(conc)
+
     r_s = rvir/conc
-    integ_unnorm = integrate.quad(integrand_unnorm, a=0, b=rvir,
-                                  args=(r_s, rvir, gamma))[0]
-    return mass/integ_unnorm
+
+    # Define r-array to do the numerical (Simpson) integration
+    # TODO: add options to define this array, and to test the results
+    # For now, using rmin=1e-5, and Nr=1000, I get that the maximum relative
+    # error in rho_s for gamma=1 (where I can compare to analytic formula)
+    # is 0.5%
+    max_rvir = rvir.max()
+    r_vals_array = np.logspace(-5, np.log10(max_rvir), 1000)
+
+    # Do numerical integral and get the normalization
+    integ_unnorm_vals = integrand_unnorm(r=r_vals_array, r_s=r_s, rvir=rvir,
+                                         gamma=gamma)
+    integral_unnorm = integrate.simps(y=integ_unnorm_vals,
+                                      x=r_vals_array,
+                                      even='first')
+
+    # Add step to smooth the results, when Nm is large enough.
+    # With this, typically the error in rho_s (for gamma=1) goes always below
+    # 0.005% for logM=[9.5,16.5], or below 0.03% for logM=[8,17]
+    if Nm >= 10:
+        # Check mass array is sorted
+        assert (mass == np.sort(mass)).all()
+
+        # Define interpolator spline (in log-space)
+        us = UnivariateSpline(x=np.log10(mass), y=np.log10(integral_unnorm),
+                              k=5)
+
+        # Get smoothed values
+        integral_unnorm_smooth = 10**us(np.log10(mass))
+
+        return mass/integral_unnorm_smooth
+
+    # If Nm is small, just return raw value, without smoothing
+    else:
+        return mass/integral_unnorm
 
 
 def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
@@ -398,9 +440,12 @@ class HaloProfileModNFW(HaloProfileNFW):
         """
 
         # Call initialization from parent
-        super(HaloProfileModNFW, self).__init__(mass=mass, redshift=redshift,
-            cosmo=cosmo, powesp_lin_0=powesp_lin_0, c_zero=c_zero, beta=beta,
-            logM_min=logM_min, logM_max=logM_max, logM_step=logM_step)
+        super(HaloProfileModNFW,
+              self).__init__(mass=mass, redshift=redshift,
+                             cosmo=cosmo, powesp_lin_0=powesp_lin_0,
+                             c_zero=c_zero, beta=beta,
+                             logM_min=logM_min, logM_max=logM_max,
+                             logM_step=logM_step)
 
         # Add the galaxy concentration
         self.f_gal = f_gal
@@ -408,8 +453,15 @@ class HaloProfileModNFW(HaloProfileNFW):
 
         # And modified parameters that depend on the concentration
         self.r_s_gal = self.rvir/self.conc_gal
-        self.rho_s_gal = rhos_from_charact(mass=self.mass, rvir=self.rvir,
-                                           conc=self.conc_gal)
+
+        # Add the gamma (inner slope)
+        self.gamma = gamma
+
+        # Add modified parameters that depend on both conc and gamma
+        self.rho_s_gal = rhos_from_charact_modNFW(mass=self.mass,
+                                                  rvir=self.rvir,
+                                                  conc=self.conc_gal,
+                                                  gamma=self.gamma)
 
     def mod_profile_config(self, r):
         """
@@ -421,8 +473,9 @@ class HaloProfileModNFW(HaloProfileNFW):
         scales given as input.
         """
 
-        return profile_NFW_config_parameters(r, self.rho_s_gal,
-                                             self.r_s_gal, self.rvir)
+        return profile_ModNFW_config_parameters(r, self.rho_s_gal,
+                                                self.r_s_gal, self.rvir,
+                                                self.gamma)
 
     def mod_profile_config_norm(self, r):
         """
