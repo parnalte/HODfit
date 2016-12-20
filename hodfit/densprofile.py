@@ -458,10 +458,15 @@ class HaloProfileModNFW(HaloProfileNFW):
         self.gamma = gamma
 
         # Add modified parameters that depend on both conc and gamma
-        self.rho_s_gal = rhos_from_charact_modNFW(mass=self.mass,
-                                                  rvir=self.rvir,
-                                                  conc=self.conc_gal,
-                                                  gamma=self.gamma)
+        if self.gamma == 1:
+            self.rho_s_gal = rhos_from_charact(mass=self.mass,
+                                               rvir=self.rvir,
+                                               conc=self.conc_gal)
+        else:
+            self.rho_s_gal = rhos_from_charact_modNFW(mass=self.mass,
+                                                      rvir=self.rvir,
+                                                      conc=self.conc_gal,
+                                                      gamma=self.gamma)
 
     def mod_profile_config(self, r):
         """
@@ -473,9 +478,13 @@ class HaloProfileModNFW(HaloProfileNFW):
         scales given as input.
         """
 
-        return profile_ModNFW_config_parameters(r, self.rho_s_gal,
-                                                self.r_s_gal, self.rvir,
-                                                self.gamma)
+        if self.gamma == 1:
+            return profile_NFW_config_parameters(r, self.rho_s_gal,
+                                                 self.r_s_gal, self.rvir)
+        else:
+            return profile_ModNFW_config_parameters(r, self.rho_s_gal,
+                                                    self.r_s_gal, self.rvir,
+                                                    self.gamma)
 
     def mod_profile_config_norm(self, r):
         """
