@@ -246,7 +246,7 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     # TODO: add options to define this array, and to test the results
     # For now, using rmin=1e-5, and Nr=1000, I get that the maximum relative
     # error in rho_s for gamma=1 (where I can compare to analytic formula)
-    # is 0.5%
+    # is 5e-3
     max_rvir = rvir.max()
     r_vals_array = np.logspace(-5, np.log10(max_rvir), 1000)
 
@@ -259,7 +259,12 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
 
     # Add step to smooth the results, when Nm is large enough.
     # With this, typically the error in rho_s (for gamma=1) goes always below
-    # 0.005% for logM=[9.5,16.5], or below 0.03% for logM=[8,17]
+    # 5e-5 for logM=[9.5,16.5], or below 3e-4 for logM=[8,17]
+    # Alternative (quad integration) would go down to ~5e-7, but much slow
+    # (need explicit loop over Nm)
+    # Comparing to alternative:
+    # * gamma=0.5: <5e-5 for logM=[8,16], <2e-4 for logM=[8,17]
+    # * gamma=2.0: <5e-4 for logM=[11,17], <~0.01 (1%) for logM=[8,17] (!)
     if Nm >= 10:
         # Check mass array is sorted
         assert (mass == np.sort(mass)).all()
@@ -276,6 +281,34 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     # If Nm is small, just return raw value, without smoothing
     else:
         return mass/integral_unnorm
+
+
+def alt_rhos_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
+    """
+    Alternative to rhos_from_charact_modNFW, using a much precise integration
+    (~5e-7 over all range, ~1e-10 for logM>11), but extremely slow
+    (due to the need for an explicit loop over mass).
+
+    I won't use this function, but leave it here for comparison purposes.
+    """
+    mass = np.atleast_1d(mass)
+    rvir = np.atleast_1d(rvir)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rvir.ndim == 1
+    assert conc.ndim == 1
+    Nm = len(mass)
+    assert Nm == len(rvir) == len(conc)
+    r_s = rvir/conc
+
+    integral_unnorm_m = np.empty(Nm)
+
+    for i in range(Nm):
+        integral_unnorm_m[i] = integrate.quad(integrand_unnorm,
+                                              a=0, b=rvir[i],
+                                              args=(r_s[i], rvir[i], gamma))[0]
+
+    return mass/integral_unnorm_m
 
 
 def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
