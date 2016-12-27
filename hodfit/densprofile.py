@@ -18,8 +18,10 @@ import astropy.cosmology as ac
 import scipy.special as spc
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline
+import hankel
 
 import halomodel
+import utils
 from utils import RHO_CRIT_UNITS
 
 
@@ -442,6 +444,60 @@ def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, r_s, conc,
                                                   rho_s[i], r_s[i], gamma)
         uprof_out[:, i] = integrate.simps(y=integrand_vals, x=rvals,
                                          even='first')
+
+    return uprof_out
+
+
+def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, r_s, conc,
+                                  gamma=1.0):
+    """
+    Try to do the same as the function profile_ModNFW_fourier_parameters,
+    but using the Hankel transforms in the 'hankel' library.
+    We use the fact that the transform we need to do is the same as to
+    convert from xi(r) to P(k), assuming that the rho(r) function provides
+    already a truncated profile.
+
+    For now, using N=6000, h=1e-5, and our cut at k=1/(10 rvir),
+    I get a difference typically below 1.5% comparing to the u(k) calculated
+    analytically for gamma=1.
+
+    Would need to use the multidimensional version of hankel to speed up
+    the transformation (and could re-assess efficiency then)
+    """
+
+    kvals = np.atleast_1d(kvals)
+    assert kvals.ndim == 1
+    Nk = len(kvals)
+
+    mass = np.atleast_1d(mass)
+    rho_s = np.atleast_1d(rho_s)
+    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rho_s.ndim == 1
+    assert r_s.ndim == 1
+    assert conc.ndim == 1
+    Nm = len(mass)
+    assert Nm == len(rho_s) == len(r_s) == len(conc)
+
+    rvir = r_s*conc
+    sph_hankel = hankel.SphericalHankelTransform(nu=0, N=6000,
+                                                 h=1e-5)
+    uprof_out = np.empty((Nk, Nm), float)
+    for i in range(Nm):
+        norm_prof_func = lambda x: \
+            profile_ModNFW_config_parameters(rvals=x, rho_s=rho_s[i],
+                                             r_s=r_s[i], rvir=rvir[i],
+                                             gamma=gamma)[:, 0]/mass[i]
+        uprof_out[:, i] = utils.xir2pk_hankel(kvalues=kvals,
+                                              xirfunction=norm_prof_func,
+                                              sph_hankel=sph_hankel)
+    # I add a condition, so that I make u(k)=1 for
+    # all k < 1/(10 rvir).
+    # This is a bit arbitrary, what works to avoid the oscillations
+    # that appear at small k
+    rvir_grid, kvals_grid = np.meshgrid(rvir, kvals)
+    uprof_out[kvals_grid < 1./(10*rvir_grid)] = 1.0
 
     return uprof_out
 
