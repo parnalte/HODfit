@@ -135,15 +135,15 @@ def rhos_from_charact(mass=1e10, rvir=1.0, conc=10.0):
     return rho_s
 
 
-def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
+def profile_NFW_config_parameters(rvals, rho_s, conc, rvir):
     """
     Function that returns the standard NFW profile in configuration space
     (as function of scale 'rvals'), given the basic parameters
-    rho_s (normalization), r_s (characteristic scale) and rvir (virial radius).
+    rho_s (normalization), conc (concentration) and rvir (virial radius).
 
     We truncate the resulting profile at r=rvir.
 
-    Assume that rho_s and r_s are arrays of length Nm, corresponding to Nm
+    Assume that rho_s and conc are arrays of length Nm, corresponding to Nm
     different haloes of several masses.
 
     Returns an array of shape (Nr, Nm), where Nr is the length of rvals.
@@ -153,10 +153,12 @@ def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
     assert rvals.ndim == 1
 
     rho_s = np.atleast_1d(rho_s)
-    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
     assert rho_s.ndim == 1
-    assert r_s.ndim == 1
-    assert len(rho_s) == len(r_s)
+    assert conc.ndim == 1
+    assert len(rho_s) == len(conc)
+
+    r_s = rvir/conc
 
     fact1 = np.outer(rvals, 1./r_s)
     fact2 = pow(1. + fact1, 2.0)
@@ -167,16 +169,16 @@ def profile_NFW_config_parameters(rvals, rho_s, r_s, rvir):
     return rho_h
 
 
-def profile_ModNFW_config_parameters(rvals, rho_s, r_s, rvir, gamma=1):
+def profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir, gamma=1):
     """
     Function that returns the *modified* NFW profile in configuration space
     (as function of scale 'rvals'), given the basic parameters
-    rho_s (normalization), r_s (characteristic scale), rvir (virial radius),
+    rho_s (normalization), conc (concentration), rvir (virial radius),
     and gamma (inner slope).
 
     We truncate the resulting profile at r=rvir.
 
-    Assume that rho_s, r_s and rvir are arrays of length Nm, corresponding to
+    Assume that rho_s, conc and rvir are arrays of length Nm, corresponding to
     Nm different haloes of several masses.
 
     Returns an array of shape (Nr, Nm), where Nr is the length of rvals.
@@ -186,12 +188,14 @@ def profile_ModNFW_config_parameters(rvals, rho_s, r_s, rvir, gamma=1):
     assert rvals.ndim == 1
 
     rho_s = np.atleast_1d(rho_s)
-    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
     rvir = np.atleast_1d(rvir)
     assert rho_s.ndim == 1
-    assert r_s.ndim == 1
+    assert conc.ndim == 1
     assert rvir.ndim == 1
-    assert len(rho_s) == len(r_s) == len(rvir)
+    assert len(rho_s) == len(conc) == len(rvir)
+
+    r_s = rvir/conc
 
     r_ratios = np.outer(rvals, 1./r_s)
     fact1 = pow(r_ratios, gamma)
@@ -203,7 +207,7 @@ def profile_ModNFW_config_parameters(rvals, rho_s, r_s, rvir, gamma=1):
     return rho_h
 
 
-def integrand_unnorm(r, r_s, rvir, gamma):
+def integrand_unnorm(r, conc, rvir, gamma):
     """
     Integrand function needed for the integral performed in
     rhos_from_charact_modNFW , to obtain the mass corresponding to an
@@ -211,15 +215,15 @@ def integrand_unnorm(r, r_s, rvir, gamma):
 
     Returns an array of shape (Nm, Nr).
     """
-    r_s = np.atleast_1d(r_s)
+    conc = np.atleast_1d(conc)
     rvir = np.atleast_1d(rvir)
-    assert r_s.ndim == 1
+    assert conc.ndim == 1
     assert rvir.ndim == 1
-    Nm = len(r_s)
+    Nm = len(conc)
     assert Nm == len(rvir)
 
     rho_u = profile_ModNFW_config_parameters(rvals=r, rho_s=np.ones(Nm),
-                                             r_s=r_s, rvir=rvir, gamma=gamma)
+                                             conc=conc, rvir=rvir, gamma=gamma)
     return 4*np.pi*r*r*rho_u.T
 
 
@@ -242,8 +246,6 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     Nm = len(mass)
     assert Nm == len(rvir) == len(conc)
 
-    r_s = rvir/conc
-
     # Define r-array to do the numerical (Simpson) integration
     # TODO: add options to define this array, and to test the results
     # For now, using rmin=1e-5, and Nr=1000, I get that the maximum relative
@@ -253,7 +255,7 @@ def rhos_from_charact_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     r_vals_array = np.logspace(-5, np.log10(max_rvir), 1000)
 
     # Do numerical integral and get the normalization
-    integ_unnorm_vals = integrand_unnorm(r=r_vals_array, r_s=r_s, rvir=rvir,
+    integ_unnorm_vals = integrand_unnorm(r=r_vals_array, conc=conc, rvir=rvir,
                                          gamma=gamma)
     integral_unnorm = integrate.simps(y=integ_unnorm_vals,
                                       x=r_vals_array,
@@ -301,19 +303,18 @@ def alt_rhos_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     assert conc.ndim == 1
     Nm = len(mass)
     assert Nm == len(rvir) == len(conc)
-    r_s = rvir/conc
 
     integral_unnorm_m = np.empty(Nm)
 
     for i in range(Nm):
         integral_unnorm_m[i] = integrate.quad(integrand_unnorm,
                                               a=0, b=rvir[i],
-                                              args=(r_s[i], rvir[i], gamma))[0]
+                                              args=(conc[i], rvir[i], gamma))[0]
 
     return mass/integral_unnorm_m
 
 
-def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
+def profile_NFW_fourier_parameters(kvals, mass, rho_s, rvir, conc):
     """
     Function that returns the standard NFW profile in Fourier space
     (as function of wavenumber 'kvals'), given the basic parameters
@@ -322,7 +323,7 @@ def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
     We take this from eq. (81) in CS02, so it already takes into account
     the truncation of the halo.
 
-    Assume that mass, rho_s, r_s and conc are arrays of length Nm,
+    Assume that mass, rho_s, rvir and conc are arrays of length Nm,
     corresponding to Nm different haloes of several masses.
 
     Returns an array of shape (Nk, Nm), where Nk is the length of kvals.
@@ -333,13 +334,15 @@ def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
 
     mass = np.atleast_1d(mass)
     rho_s = np.atleast_1d(rho_s)
-    r_s = np.atleast_1d(r_s)
+    rvir = np.atleast_1d(rvir)
     conc = np.atleast_1d(conc)
     assert mass.ndim == 1
     assert rho_s.ndim == 1
-    assert r_s.ndim == 1
+    assert rvir.ndim == 1
     assert conc.ndim == 1
-    assert len(mass) == len(rho_s) == len(r_s) == len(conc)
+    assert len(mass) == len(rho_s) == len(rvir) == len(conc)
+
+    r_s = rvir/conc
 
     # Need to compute the sine and cosine integrals
     si_ckr, ci_ckr = spc.sici(np.outer(kvals, (1. + conc) * r_s))
@@ -355,7 +358,7 @@ def profile_NFW_fourier_parameters(kvals, mass, rho_s, r_s, conc):
     return uprof
 
 
-def integrand_fourier_transf(kvals, rvals, mass, rho_s, r_s, rvir, gamma=1.0):
+def integrand_fourier_transf(kvals, rvals, mass, rho_s, conc, rvir, gamma=1.0):
     """
     Function that computes the integrand needed to compute the Fourier
     transform of the radial ModNFW profile.
@@ -363,7 +366,7 @@ def integrand_fourier_transf(kvals, rvals, mass, rho_s, r_s, rvir, gamma=1.0):
     Assumes:
         kvals: length Nk
         rvals: length Nr
-        mass, rho_s, r_s, rvir: scalars!!
+        mass, rho_s, conc, rvir: scalars!!
 
     Trying to do this with vectors for mass, etc. would probably kill off the
     memory!!
@@ -382,7 +385,7 @@ def integrand_fourier_transf(kvals, rvals, mass, rho_s, r_s, rvir, gamma=1.0):
     sinc_term = np.sin(kr_term)/kr_term           # (Nk, Nr)
     radial_term = 4.*np.pi*rvals*rvals*sinc_term  # (Nk, Nr)
 
-    profile_term = profile_ModNFW_config_parameters(rvals, rho_s, r_s, rvir,
+    profile_term = profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir,
                                                     gamma)   # (Nr, 1)
     norm_profile_term = (profile_term/mass)[:, 0]  # Convert to 1D vector (Nr)
 
@@ -390,7 +393,7 @@ def integrand_fourier_transf(kvals, rvals, mass, rho_s, r_s, rvir, gamma=1.0):
     return radial_term*norm_profile_term
 
 
-def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, r_s, conc,
+def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, rvir, conc,
                                       gamma=1.0):
     """
     Function that returns the *modified* NFW profile in Fourier space
@@ -400,7 +403,7 @@ def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, r_s, conc,
     We do this using an explicit numerical integration, as there is no
     analytic result for gamma != 1.
 
-    Assume that mass, rho_s, r_s and conc are arrays of length Nm,
+    Assume that mass, rho_s, rvir and conc are arrays of length Nm,
     corresponding to Nm different haloes of several masses.
 
     Returns an array of shape (Nk, Nm), where Nk is the length of kvals.
@@ -416,16 +419,14 @@ def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, r_s, conc,
 
     mass = np.atleast_1d(mass)
     rho_s = np.atleast_1d(rho_s)
-    r_s = np.atleast_1d(r_s)
+    rvir = np.atleast_1d(rvir)
     conc = np.atleast_1d(conc)
     assert mass.ndim == 1
     assert rho_s.ndim == 1
-    assert r_s.ndim == 1
+    assert rvir.ndim == 1
     assert conc.ndim == 1
     Nm = len(mass)
-    assert Nm == len(rho_s) == len(r_s) == len(conc)
-
-    rvir = r_s*conc
+    assert Nm == len(rho_s) == len(rvir) == len(conc)
 
     # Define r-array to do the numerical (Simpson) integration
     # As we do explicit loop over mass, will 'adapt' it to the
@@ -441,14 +442,14 @@ def profile_ModNFW_fourier_parameters(kvals, mass, rho_s, r_s, conc,
     for i in range(Nm):
         # rvals = np.logspace(logrvals_min, np.log10(rvir[i]), logrvals_step)
         integrand_vals = integrand_fourier_transf(kvals, rvals, mass[i],
-                                                  rho_s[i], r_s[i], gamma)
+                                                  rho_s[i], conc[i], gamma)
         uprof_out[:, i] = integrate.simps(y=integrand_vals, x=rvals,
-                                         even='first')
+                                          even='first')
 
     return uprof_out
 
 
-def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, r_s, conc,
+def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
                                   gamma=1.0):
     """
     Try to do the same as the function profile_ModNFW_fourier_parameters,
@@ -462,7 +463,7 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, r_s, conc,
     analytically for gamma=1.
 
     Could in principle use the multidimensional version of hankel to speed
-    up the transformation (avoiding explicit loop over Nm). 
+    up the transformation (avoiding explicit loop over Nm).
     However, for useful values of Nm this rockets up the memory usage, so this
     approach is not viable in practice.
     """
@@ -473,23 +474,22 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, r_s, conc,
 
     mass = np.atleast_1d(mass)
     rho_s = np.atleast_1d(rho_s)
-    r_s = np.atleast_1d(r_s)
+    rvir = np.atleast_1d(rvir)
     conc = np.atleast_1d(conc)
     assert mass.ndim == 1
     assert rho_s.ndim == 1
-    assert r_s.ndim == 1
+    assert rvir.ndim == 1
     assert conc.ndim == 1
     Nm = len(mass)
-    assert Nm == len(rho_s) == len(r_s) == len(conc)
+    assert Nm == len(rho_s) == len(rvir) == len(conc)
 
-    rvir = r_s*conc
     sph_hankel = hankel.SphericalHankelTransform(nu=0, N=6000,
                                                  h=1e-5)
     uprof_out = np.empty((Nk, Nm), float)
     for i in range(Nm):
         norm_prof_func = lambda x: \
             profile_ModNFW_config_parameters(rvals=x, rho_s=rho_s[i],
-                                             r_s=r_s[i], rvir=rvir[i],
+                                             conc=conc[i], rvir=rvir[i],
                                              gamma=gamma)[:, 0]/mass[i]
         uprof_out[:, i] = utils.xir2pk_hankel(kvalues=kvals,
                                               xirfunction=norm_prof_func,
@@ -558,7 +558,7 @@ class HaloProfileNFW(object):
            of scales given as input.
         """
 
-        return profile_NFW_config_parameters(r, self.rho_s, self.r_s,
+        return profile_NFW_config_parameters(r, self.rho_s, self.conc,
                                              self.rvir)
 
     def profile_config_norm(self, r):
@@ -585,7 +585,7 @@ class HaloProfileNFW(object):
         """
 
         return profile_NFW_fourier_parameters(k, self.mass, self.rho_s,
-                                              self.r_s, self.conc)
+                                              self.rvir, self.conc)
 
 
 class HaloProfileModNFW(HaloProfileNFW):
@@ -664,10 +664,10 @@ class HaloProfileModNFW(HaloProfileNFW):
 
         if self.gamma == 1:
             return profile_NFW_config_parameters(r, self.rho_s_gal,
-                                                 self.r_s_gal, self.rvir)
+                                                 self.conc_gal, self.rvir)
         else:
             return profile_ModNFW_config_parameters(r, self.rho_s_gal,
-                                                    self.r_s_gal, self.rvir,
+                                                    self.conc_gal, self.rvir,
                                                     self.gamma)
 
     def mod_profile_config_norm(self, r):
@@ -696,4 +696,4 @@ class HaloProfileModNFW(HaloProfileNFW):
         """
 
         return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
-                                              self.r_s_gal, self.conc_gal)
+                                              self.rvir, self.conc_gal)
