@@ -461,8 +461,10 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, r_s, conc,
     I get a difference typically below 1.5% comparing to the u(k) calculated
     analytically for gamma=1.
 
-    Would need to use the multidimensional version of hankel to speed up
-    the transformation (and could re-assess efficiency then)
+    Could in principle use the multidimensional version of hankel to speed
+    up the transformation (avoiding explicit loop over Nm). 
+    However, for useful values of Nm this rockets up the memory usage, so this
+    approach is not viable in practice.
     """
 
     kvals = np.atleast_1d(kvals)
