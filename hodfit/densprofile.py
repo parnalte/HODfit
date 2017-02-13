@@ -380,7 +380,8 @@ def profile_NFW_fourier_parameters(kvals, mass, rho_s, rvir, conc):
 
 
 def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
-                                  gamma=1.0):
+                                  gamma=1.0, hankelN=6000, hankelh=1e-5,
+                                  ft_hankel=None):
     """
     Try to do the same as the function profile_ModNFW_fourier_parameters,
     but using the Hankel transforms in the 'hankel' library.
@@ -413,10 +414,9 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
     Nm = len(mass)
     assert Nm == len(rho_s) == len(rvir) == len(conc)
 
-
-    hankelN = 6000
-    hankelh = 1e-5
-    ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN, h=hankelh)
+    if ft_hankel is None:
+        ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN,
+                                                     h=hankelh)
     uprof_out = np.ones((Nk, Nm), float)
     for i in range(Nm):
         idx_calc = (kvals > 1./(10*rvir[i]))
