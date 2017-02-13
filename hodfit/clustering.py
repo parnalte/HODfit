@@ -24,7 +24,7 @@ from scipy import interpolate
 import halomodel
 import hodmodel
 import densprofile
-from utils import PowerSpectrum, xir2wp_pi, nostdout
+from utils import PowerSpectrum, xir2wp_pi
 
 
 ################################
@@ -360,7 +360,7 @@ class HODClustering(object):
                  f_gal=1.0, gamma=1.0,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
-                 halo_exclusion_model=2, sph_hankel=None,
+                 halo_exclusion_model=2, ft_hankel=None,
                  rvalues=np.logspace(-1, 2, 100)):
 
         assert redshift >= 0
@@ -387,7 +387,7 @@ class HODClustering(object):
         self.scale_dep_bias = scale_dep_bias
         self.use_mvir_limit = use_mvir_limit
         self.halo_exclusion_model = halo_exclusion_model
-        self.sph_hankel = sph_hankel
+        self.ft_hankel = ft_hankel
 
         self.pk_satsat = None
         self.pk_2h = None
@@ -603,7 +603,7 @@ class HODClustering(object):
             self.get_pk_satsat(kvalues=kvalues)
 
         xir_ss = self.pk_satsat.xir(rvals=self.rvalues,
-                                    sph_hankel=self.sph_hankel)
+                                    ft_hankel=self.ft_hankel)
 
         return xir_ss
 
@@ -684,7 +684,7 @@ class HODClustering(object):
         for i, r in enumerate(rvalues):
             this_r_pkvals = self.powesp_matter.pk*factor_2h_kr[:, i]
             this_r_powesp = PowerSpectrum(kvals=kvalues, pkvals=this_r_pkvals)
-            xiprime[i] = this_r_powesp.xir(r, sph_hankel=self.sph_hankel)
+            xiprime[i] = this_r_powesp.xir(r, ft_hankel=self.ft_hankel)
 
         # Finally, re-escale the xiprime we obtained following eq. (B9)
         # of Tinker-2005
@@ -710,7 +710,7 @@ class HODClustering(object):
                 self.get_pk_2h()
 
             xir_2h = self.pk_2h.xir(rvals=self.rvalues,
-                                    sph_hankel=self.sph_hankel)
+                                    ft_hankel=self.ft_hankel)
 
         # Zheng's halo exclusion model
         elif self.halo_exclusion_model == 1:
@@ -747,7 +747,7 @@ class HODClustering(object):
 
         if self.scale_dep_bias:
             xi_matter = self.powesp_matter.xir(rvals=self.rvalues,
-                                               sph_hankel=self.sph_hankel)
+                                               ft_hankel=self.ft_hankel)
             bias_correction = \
                 pow(1. + (1.17 * xi_matter), 1.49) /\
                 pow(1. + (0.69 * xi_matter), 2.09)
@@ -859,11 +859,9 @@ Are you sure that is what you really want?")
                                           redshift=redshift,
                                           par_b=bpar, par_c=cpar)
 
-    # Now, create the SphericalHankelTransform needed for the conversions
+    # Now, create the Hankel FourierTransform object needed for the conversions
     # P(k) --> xi(r)
-    with nostdout():
-        sph_hankel = hankel.SphericalHankelTransform(nu=0, N=hankelN,
-                                                     h=hankelh)
+    ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN, h=hankelh)
 
     # Define the array of r-values for the HODClustering object
     assert rmax > rmin
@@ -885,7 +883,7 @@ Are you sure that is what you really want?")
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,
                       halo_exclusion_model=halo_exclusion_model,
-                      sph_hankel=sph_hankel, rvalues=rvals_array)
+                      ft_hankel=ft_hankel, rvalues=rvals_array)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens

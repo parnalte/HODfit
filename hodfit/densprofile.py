@@ -21,7 +21,6 @@ from scipy.interpolate import UnivariateSpline
 import hankel
 
 import halomodel
-import utils
 from utils import RHO_CRIT_UNITS
 
 
@@ -204,6 +203,26 @@ def profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir, gamma=1):
 
     rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
     rho_h[rvals_grid > rvir_grid] = 0
+    return rho_h
+
+
+def profile_ModNFW_config_scalar(rvals, rho_s, conc, rvir, gamma_exp=1):
+    """
+    (TEMP) Same as above, but now:
+        - Assumes rho_s, conc, rvir will be scalars (single value of each)
+        - rvals can be an array of any dimension (in particular ndim=2)
+    This is to allow this to work with the new SymmetricFourierTransform in
+    hankel library
+    """
+    
+    r_s = rvir/conc
+    r_ratios = rvals/r_s
+    
+    fact1 = r_ratios**gamma_exp
+    fact2 = (1. + r_ratios)**(3. - gamma_exp)
+    rho_h = rho_s/(fact1*fact2)
+
+    rho_h[rvals > rvir] = 0
     return rho_h
 
 
@@ -483,17 +502,19 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
     Nm = len(mass)
     assert Nm == len(rho_s) == len(rvir) == len(conc)
 
-    sph_hankel = hankel.SphericalHankelTransform(nu=0, N=6000,
-                                                 h=1e-5)
+
+    hankelN = 6000
+    hankelh = 1e-5
+    ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN, h=hankelh)
     uprof_out = np.empty((Nk, Nm), float)
     for i in range(Nm):
         norm_prof_func = lambda x: \
-            profile_ModNFW_config_parameters(rvals=x, rho_s=rho_s[i],
-                                             conc=conc[i], rvir=rvir[i],
-                                             gamma=gamma)[:, 0]/mass[i]
-        uprof_out[:, i] = utils.xir2pk_hankel(kvalues=kvals,
-                                              xirfunction=norm_prof_func,
-                                              sph_hankel=sph_hankel)
+            profile_ModNFW_config_scalar(rvals=x, rho_s=rho_s[i],
+                                         conc=conc[i], rvir=rvir[i],
+                                         gamma_exp=gamma)/mass[i]
+        uprof_out[:, i] = ft_hankel.transform(f=norm_prof_func,
+                                              k=kvals, ret_err=False, 
+                                              ret_cumsum=False)
     # I add a condition, so that I make u(k)=1 for
     # all k < 1/(10 rvir).
     # This is a bit arbitrary, what works to avoid the oscillations
