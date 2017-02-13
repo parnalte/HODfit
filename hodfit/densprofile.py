@@ -215,14 +215,16 @@ def profile_ModNFW_config_scalar(rvals, rho_s, conc, rvir, gamma_exp=1):
     hankel library
     """
     
-    r_s = rvir/conc
-    r_ratios = rvals/r_s
+    idx_calc = (rvals < rvir)
+    rho_h = np.zeros_like(rvals)
+    
+    r_ratios = rvals[idx_calc]*conc/rvir
     
     fact1 = r_ratios**gamma_exp
     fact2 = (1. + r_ratios)**(3. - gamma_exp)
-    rho_h = rho_s/(fact1*fact2)
+    rho_h[idx_calc] = rho_s/(fact1*fact2)
 
-    rho_h[rvals > rvir] = 0
+    # rho_h[rvals > rvir] = 0
     return rho_h
 
 
@@ -503,7 +505,7 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
     assert Nm == len(rho_s) == len(rvir) == len(conc)
 
 
-    hankelN = 6000
+    hankelN = 1200
     hankelh = 1e-5
     ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN, h=hankelh)
     uprof_out = np.empty((Nk, Nm), float)
