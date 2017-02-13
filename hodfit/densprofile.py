@@ -414,17 +414,18 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
     assert Nm == len(rho_s) == len(rvir) == len(conc)
 
 
-    hankelN = 1200
+    hankelN = 6000
     hankelh = 1e-5
     ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN, h=hankelh)
-    uprof_out = np.empty((Nk, Nm), float)
+    uprof_out = np.ones((Nk, Nm), float)
     for i in range(Nm):
+        idx_calc = (kvals > 1./(10*rvir[i]))
         norm_prof_func = lambda x: \
             profile_ModNFW_config_scalar(rvals=x, rho_s=rho_s[i],
                                          conc=conc[i], rvir=rvir[i],
                                          gamma_exp=gamma)/mass[i]
-        uprof_out[:, i] = ft_hankel.transform(f=norm_prof_func,
-                                              k=kvals, ret_err=False, 
+        uprof_out[idx_calc, i] = ft_hankel.transform(f=norm_prof_func,
+                                              k=kvals[idx_calc], ret_err=False, 
                                               ret_cumsum=False)
     # I add a condition, so that I make u(k)=1 for
     # all k < 1/(10 rvir).
