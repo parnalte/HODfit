@@ -17,7 +17,7 @@ import numpy as np
 import astropy.cosmology as ac
 import scipy.special as spc
 from scipy import integrate
-from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import UnivariateSpline, RectBivariateSpline
 import hankel
 
 import halomodel
@@ -185,6 +185,7 @@ def profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir, gamma=1):
 
     rvals = np.atleast_1d(rvals)
     assert rvals.ndim == 1
+    # print rvals.shape
 
     rho_s = np.atleast_1d(rho_s)
     conc = np.atleast_1d(conc)
@@ -192,17 +193,23 @@ def profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir, gamma=1):
     assert rho_s.ndim == 1
     assert conc.ndim == 1
     assert rvir.ndim == 1
-    assert len(rho_s) == len(conc) == len(rvir)
+    Nm = len(rho_s)
+    assert Nm == len(conc) == len(rvir)
 
     r_s = rvir/conc
 
-    r_ratios = np.outer(rvals, 1./r_s)
-    fact1 = pow(r_ratios, gamma)
-    fact2 = pow(1. + r_ratios, 3. - gamma)
+    r_ratios = np.divide.outer(rvals.T, r_s)
+    fact1 = (r_ratios)**gamma
+    fact2 = (1. + r_ratios)**(3. - gamma)
     rho_h = rho_s/(fact1*fact2)
 
-    rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
-    rho_h[rvals_grid > rvir_grid] = 0
+#    rvir_grid, rvals_grid = np.meshgrid(rvir, rvals)
+#    rho_h[rvals_grid > rvir_grid] = 0
+    idx_zero = np.greater.outer(rvals.T, rvir)
+    # print rho_h.shape
+    # print idx_zero.shape
+    rho_h[idx_zero] = 0
+    
     return rho_h
 
 
@@ -379,6 +386,71 @@ def profile_NFW_fourier_parameters(kvals, mass, rho_s, rvir, conc):
     return uprof
 
 
+def profile_ModNFW_fourier_hankel_interp(kvals, mass, rho_s, rvir, conc,
+                                         gamma=1.0, hankelN=6000, hankelh=1e-5,
+                                         ft_hankel=None, Nk_interp=None,
+                                         Nm_interp=None):
+    """
+    Function to calculate the Fourier-space profile of the ModNFW profile.
+    
+    In this case, we allow for the use of interpolation in both kvals
+    and the masses, so that we do the costly calculation (given by the 
+    function profile_ModNFW_fourier_hankel) only for a coarser grid in
+    k,mass, and then interpolate to obtain the needed values.
+    """
+    
+    Nkin = len(kvals)
+    Nmin = len(mass)
+
+    logkvals_in = np.log10(kvals)    
+    logmass_in = np.log10(mass)
+
+    if (Nk_interp is not None) and (Nk_interp < Nkin):
+        Nkout = Nk_interp
+    else:
+        Nkout = Nkin
+        
+    logkvals_interp = np.linspace(np.log10(kvals.min()), np.log10(kvals.max()),
+                                  Nkout)
+    kvals_interp = 10**logkvals_interp
+
+    if (Nm_interp is not None) and (Nm_interp < Nmin):
+        Nmout = Nm_interp
+    else:
+        Nmout = Nmin
+        
+    logmassvals_interp = np.linspace(np.log10(mass.min()),
+                                     np.log10(mass.max()), Nmout)
+    mass_interp = 10**logmassvals_interp
+    
+    # Get the corresponding values of rho_s, rvir, conc by linear interpolation
+    # TODO: improve this?
+    rho_s_spline = UnivariateSpline(x=logmass_in, y=rho_s, k=1, s=0)
+    rho_s_interp = rho_s_spline(logmassvals_interp)
+    
+    rvir_spline = UnivariateSpline(x=logmass_in, y=rvir, k=1, s=0)
+    rvir_interp = rvir_spline(logmassvals_interp)
+    
+    conc_spline = UnivariateSpline(x=logmass_in, y=conc, k=1, s=0)
+    conc_interp = conc_spline(logmassvals_interp)
+    
+    
+    #Do the actual calculation in the coarser grid
+    uprof_interp = profile_ModNFW_fourier_hankel(kvals_interp, mass_interp,
+                                                 rho_s_interp, rvir_interp,
+                                                 conc_interp, gamma, hankelN,
+                                                 hankelh, ft_hankel)
+    
+    # And now interpolate to obtain the values at the desired points
+    # for now, simply linear interpolation.
+    # TODO: revise this?)
+    uprof_spline_2d = RectBivariateSpline(x=logkvals_interp,
+                                          y=logmassvals_interp, z=uprof_interp,
+                                          kx=1, ky=1, s=0)
+    
+    return uprof_spline_2d(x=logkvals_in, y=logmass_in, grid=True)
+    
+
 def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
                                   gamma=1.0, hankelN=6000, hankelh=1e-5,
                                   ft_hankel=None):
@@ -432,8 +504,8 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
     # all k < 1/(10 rvir).
     # This is a bit arbitrary, what works to avoid the oscillations
     # that appear at small k
-    rvir_grid, kvals_grid = np.meshgrid(rvir, kvals)
-    uprof_out[kvals_grid < 1./(10*rvir_grid)] = 1.0
+    # rvir_grid, kvals_grid = np.meshgrid(rvir, kvals)
+    # uprof_out[kvals_grid < 1./(10*rvir_grid)] = 1.0
 
     return uprof_out
 
