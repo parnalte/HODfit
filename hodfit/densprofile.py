@@ -87,7 +87,7 @@ def mstar_interp(cosmo=ac.WMAP7, powesp_lin_0=None, logM_min=10.0,
 
     # sigma_mass() already works well with input mass arrays
     sigma_array = halomodel.sigma_mass(mass=mass_array, cosmo=cosmo,
-                                powesp_lin_0=powesp_lin_0)
+                                       powesp_lin_0=powesp_lin_0)
 
     delta_c0 = halomodel.delta_c_z(redshift=0, cosmo=cosmo)
 
@@ -214,12 +214,12 @@ def profile_ModNFW_config_scalar(rvals, rho_s, conc, rvir, gamma_exp=1):
     This is to allow this to work with the new SymmetricFourierTransform in
     hankel library
     """
-    
+
     idx_calc = (rvals < rvir)
     rho_h = np.zeros_like(rvals)
-    
+
     r_ratios = rvals[idx_calc]*conc/rvir
-    
+
     fact1 = r_ratios**gamma_exp
     fact2 = (1. + r_ratios)**(3. - gamma_exp)
     rho_h[idx_calc] = rho_s/(fact1*fact2)
@@ -328,9 +328,9 @@ def alt_rhos_modNFW(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0):
     integral_unnorm_m = np.empty(Nm)
 
     for i in range(Nm):
-        integral_unnorm_m[i] = integrate.quad(integrand_unnorm,
-                                              a=0, b=rvir[i],
-                                              args=(conc[i], rvir[i], gamma))[0]
+        integral_unnorm_m[i] = \
+            integrate.quad(integrand_unnorm, a=0, b=rvir[i],
+                           args=(conc[i], rvir[i], gamma))[0]
 
     return mass/integral_unnorm_m
 
@@ -425,8 +425,9 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
                                          conc=conc[i], rvir=rvir[i],
                                          gamma_exp=gamma)/mass[i]
         uprof_out[idx_calc, i] = ft_hankel.transform(f=norm_prof_func,
-                                              k=kvals[idx_calc], ret_err=False, 
-                                              ret_cumsum=False)
+                                                     k=kvals[idx_calc],
+                                                     ret_err=False,
+                                                     ret_cumsum=False)
     # I add a condition, so that I make u(k)=1 for
     # all k < 1/(10 rvir).
     # This is a bit arbitrary, what works to avoid the oscillations
