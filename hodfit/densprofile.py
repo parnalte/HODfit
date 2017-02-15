@@ -209,7 +209,7 @@ def profile_ModNFW_config_parameters(rvals, rho_s, conc, rvir, gamma=1):
     # print rho_h.shape
     # print idx_zero.shape
     rho_h[idx_zero] = 0
-    
+
     return rho_h
 
 
@@ -392,24 +392,24 @@ def profile_ModNFW_fourier_hankel_interp(kvals, mass, rho_s, rvir, conc,
                                          Nm_interp=None):
     """
     Function to calculate the Fourier-space profile of the ModNFW profile.
-    
+
     In this case, we allow for the use of interpolation in both kvals
-    and the masses, so that we do the costly calculation (given by the 
+    and the masses, so that we do the costly calculation (given by the
     function profile_ModNFW_fourier_hankel) only for a coarser grid in
     k,mass, and then interpolate to obtain the needed values.
     """
-    
+
     Nkin = len(kvals)
     Nmin = len(mass)
 
-    logkvals_in = np.log10(kvals)    
+    logkvals_in = np.log10(kvals)
     logmass_in = np.log10(mass)
 
     if (Nk_interp is not None) and (Nk_interp < Nkin):
         Nkout = Nk_interp
     else:
         Nkout = Nkin
-        
+
     logkvals_interp = np.linspace(np.log10(kvals.min()), np.log10(kvals.max()),
                                   Nkout)
     kvals_interp = 10**logkvals_interp
@@ -418,38 +418,37 @@ def profile_ModNFW_fourier_hankel_interp(kvals, mass, rho_s, rvir, conc,
         Nmout = Nm_interp
     else:
         Nmout = Nmin
-        
+
     logmassvals_interp = np.linspace(np.log10(mass.min()),
                                      np.log10(mass.max()), Nmout)
     mass_interp = 10**logmassvals_interp
-    
+
     # Get the corresponding values of rho_s, rvir, conc by linear interpolation
     # TODO: improve this?
     rho_s_spline = UnivariateSpline(x=logmass_in, y=rho_s, k=1, s=0)
     rho_s_interp = rho_s_spline(logmassvals_interp)
-    
+
     rvir_spline = UnivariateSpline(x=logmass_in, y=rvir, k=1, s=0)
     rvir_interp = rvir_spline(logmassvals_interp)
-    
+
     conc_spline = UnivariateSpline(x=logmass_in, y=conc, k=1, s=0)
     conc_interp = conc_spline(logmassvals_interp)
-    
-    
-    #Do the actual calculation in the coarser grid
+
+    # Do the actual calculation in the coarser grid
     uprof_interp = profile_ModNFW_fourier_hankel(kvals_interp, mass_interp,
                                                  rho_s_interp, rvir_interp,
                                                  conc_interp, gamma, hankelN,
                                                  hankelh, ft_hankel)
-    
+
     # And now interpolate to obtain the values at the desired points
     # for now, simply linear interpolation.
     # TODO: revise this?)
     uprof_spline_2d = RectBivariateSpline(x=logkvals_interp,
                                           y=logmassvals_interp, z=uprof_interp,
                                           kx=1, ky=1, s=0)
-    
+
     return uprof_spline_2d(x=logkvals_in, y=logmass_in, grid=True)
-    
+
 
 def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
                                   gamma=1.0, hankelN=6000, hankelh=1e-5,

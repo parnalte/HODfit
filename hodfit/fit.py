@@ -145,7 +145,7 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     and, if needed, on the ModNFW profile parameters.
     Mass parameters are assumed to be given as log10(M_x) (so the prior will
     be flat on the latter), alpha and sigma_logM are assumed to be given
-    directly. 
+    directly.
     For the profile parameters, f_gal is assumed to be given as log10(f_gal),
     while gamma is assumed to be given directly.
 
@@ -985,21 +985,21 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     else:
         raise ValueError("Allowed values of HOD_type are 1 or 2")
 
-    # Read in the parameters defining the possible additional fit to the 
+    # Read in the parameters defining the possible additional fit to the
     # profile parameters
     n_dim_prof_model = 0
     prof_param_init = []
     prof_param_lims = []
-    
+
     fit_f_gal = config.getboolean('ModNFWModel', 'fit_f_gal')
     if fit_f_gal:
         n_dim_prof_model += 1
         log_fgal_init = config.getfloat('ModNFWModel', 'log_fgal_init')
         log_fgal_lims = map(float,
-                         config.get('ModNFWModel', 'log_fgal_limits').split())
+                            config.get('ModNFWModel', 'log_fgal_limits').split())
         prof_param_init += [log_fgal_init]
         prof_param_lims += log_fgal_lims
-        
+
     fit_gamma = config.getboolean('ModNFWModel', 'fit_gamma')
     if fit_gamma:
         n_dim_prof_model += 1
@@ -1008,7 +1008,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                          config.get('ModNFWModel', 'gamma_limits').split())
         prof_param_init += [gamma_init]
         prof_param_lims += gamma_lims
-        
+
     # Put together all the parameters that we will try to fit
     n_dim_model = n_dim_hod_model + n_dim_prof_model
     fit_param_init = hod_param_init + prof_param_init
@@ -1044,14 +1044,14 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     #
     # Will use the defaults for many parameters (actual HOD parameters are not
     # relevant here)
-    # We always set here the ModNFW parameter to the NFW case (and will 
+    # We always set here the ModNFW parameter to the NFW case (and will
     # modify these later if needed)
     hod_clust =\
         clustering.hod_from_parameters(redshift=redshift, OmegaM0=omega_matter,
                                        OmegaL0=omega_lambda,
                                        powesp_matter_file=pk_matter_z_file,
                                        powesp_linz0_file=pk_lin_z0_file,
-                                       hod_type=hod_type, f_gal=1.0, 
+                                       hod_type=hod_type, f_gal=1.0,
                                        gamma=1.0, logM_min=logMmin,
                                        logM_max=logMmax, logM_step=logMstep,
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,

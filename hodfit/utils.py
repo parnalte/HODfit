@@ -20,6 +20,7 @@ import hankel
 # This is adequate for the units used here
 RHO_CRIT_UNITS = 2.7752E+11
 
+
 def xi2d_iso(rp, pi, xirfunc):
 
     rval = np.sqrt((rp*rp) + (pi*pi))
@@ -143,8 +144,8 @@ class PowerSpectrum(object):
         Function that performs a Hankel transform to obtain the 2-point
         correlation function corresponding to the power spectrum.
         """
-        
-        if ft_hankel==None:
+
+        if ft_hankel is None:
             ft_hankel = hankel.SymmetricFourierTransform(ndim=3,
                                                          N=hankelN,
                                                          h=hankelh)
