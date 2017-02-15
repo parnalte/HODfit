@@ -939,7 +939,9 @@ def get_wptotal(rpvals, clustering_object, partial_terms=False, nr=300,
 
     # Check that the array we want matches that already used in the
     # clustering object, and if not update it
-    if (rarray.min() != rmin) or (rarray.max() != rmax) or (len(rarray) != nr):
+    if (not np.isclose(rarray.min(), rmin)) or \
+       (not np.isclose(rarray.max(), rmax)) or (len(rarray) != nr):
+
         rarray_new = np.logspace(np.log10(rmin), np.log10(rmax), nr)
         clustering_object.update_rvalues(rarray_new)
         rarray = rarray_new
