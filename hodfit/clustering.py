@@ -353,6 +353,14 @@ class HODClustering(object):
     We associate a fixed array of r values to this object (which will be used
     for all xi(r) computations, so that, in the case of halo_exclusion_model=2
     we can pre-compute the values of P(r, M1, M2) needed for the calculation).
+
+    We add three parameters (fprof_ft_hankel, fprof_Nk_interp, fprof_Nm_interp),
+    to be passed to the profile object (in the ModNFW case), and that will
+    control the details of the calculation of the Fourier-space halo profiles.
+    If these parameters are None, the defaults defined in the appropriate
+    functions will be used.
+    Note that this fprof_ft_hankel can be different from the ft_hankel used
+    for the transformations xi(r) <--> P(k) done directly in this class.
     """
 
     def __init__(self, redshift=0, cosmo=ac.WMAP7, powesp_matter=None,
@@ -361,7 +369,8 @@ class HODClustering(object):
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
                  halo_exclusion_model=2, ft_hankel=None,
-                 rvalues=np.logspace(-1, 2, 100)):
+                 rvalues=np.logspace(-1, 2, 100), fprof_ft_hankel=None,
+                 fprof_Nk_interp=None, fprof_Nm_interp=None):
 
         assert redshift >= 0
         assert powesp_matter is not None
@@ -388,6 +397,10 @@ class HODClustering(object):
         self.use_mvir_limit = use_mvir_limit
         self.halo_exclusion_model = halo_exclusion_model
         self.ft_hankel = ft_hankel
+
+        self.fprof_ft_hankel = fprof_ft_hankel
+        self.fprof_Nk_interp = fprof_Nk_interp
+        self.fprof_Nm_interp = fprof_Nm_interp
 
         self.pk_satsat = None
         self.pk_2h = None
@@ -431,7 +444,10 @@ class HODClustering(object):
                                               gamma=self.gamma,
                                               redshift=self.redshift,
                                               cosmo=self.cosmo,
-                                              powesp_lin_0=self.powesp_lin_0)
+                                              powesp_lin_0=self.powesp_lin_0,
+                                              fourier_ft_hankel=self.fprof_ft_hankel,
+                                              fourier_Nk_interp=self.fprof_Nk_interp,
+                                              fourier_Nm_interp=self.fprof_Nm_interp)
             self.dprofile_fourier = \
                 self.densprofile.mod_profile_fourier(k=self.kvals)
 
@@ -543,7 +559,11 @@ class HODClustering(object):
                                               gamma=self.gamma,
                                               redshift=self.redshift,
                                               cosmo=self.cosmo,
-                                              powesp_lin_0=self.powesp_lin_0)
+                                              powesp_lin_0=self.powesp_lin_0,
+                                              fourier_ft_hankel=self.fprof_ft_hankel,
+                                              fourier_Nk_interp=self.fprof_Nk_interp,
+                                              fourier_Nm_interp=self.fprof_Nm_interp)
+
             self.dprofile_fourier = \
                 self.densprofile.mod_profile_fourier(k=self.kvals)
             self.dprofile_config = \
@@ -802,7 +822,9 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         scale_dep_bias=True, use_mvir_limit=True,
                         halo_exclusion_model=2, use_tinker_bias_params=True,
                         hankelN=6000, hankelh=0.0005, rmin=0.01, rmax=100.0,
-                        nr=100, rlog=True):
+                        nr=100, rlog=True,
+                        fprof_hankelN=12000, fprof_hankelh=1e-6,
+                        fprof_Nk_interp=100, fprof_Nm_interp=100):
     """
     Construct an HODClustering object defining all the needed parameters.
     """
@@ -873,6 +895,11 @@ Are you sure that is what you really want?")
     else:
         rvals_array = np.linspace(rmin, rmax, nr)
 
+    # Create the Hankel FourierTransform object corresponding to the conversion
+    # of the halo radial profiles from config. to Fourier space
+    fprof_ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=fprof_hankelN,
+                                                       h=fprof_hankelh)
+
     # And finally, define the clustering object
     model_clustering_object = \
         HODClustering(redshift=redshift, cosmo=cosmo_object,
@@ -883,7 +910,10 @@ Are you sure that is what you really want?")
                       logM_step=logM_step, scale_dep_bias=scale_dep_bias,
                       use_mvir_limit=use_mvir_limit,
                       halo_exclusion_model=halo_exclusion_model,
-                      ft_hankel=ft_hankel, rvalues=rvals_array)
+                      ft_hankel=ft_hankel, rvalues=rvals_array,
+                      fprof_ft_hankel=fprof_ft_hankel,
+                      fprof_Nk_interp=fprof_Nk_interp,
+                      fprof_Nm_interp=fprof_Nm_interp)
 
     print "New HODClustering object created, \
 galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
