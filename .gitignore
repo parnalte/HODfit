@@ -8,7 +8,7 @@
 *.aux
 *.pdf
 *.rel
-.spyder*
+.spy*
 *.png
 test*chain.dat
 test*config.ini
