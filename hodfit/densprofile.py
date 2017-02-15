@@ -399,7 +399,12 @@ def profile_ModNFW_fourier_hankel_interp(kvals, mass, rho_s, rvir, conc,
     k,mass, and then interpolate to obtain the needed values.
     """
 
+    kvals = np.atleast_1d(kvals)
+    assert kvals.ndim == 1
     Nkin = len(kvals)
+
+    mass = np.atleast_1d(mass)
+    assert mass.ndim == 1
     Nmin = len(mass)
 
     logkvals_in = np.log10(kvals)
@@ -419,35 +424,76 @@ def profile_ModNFW_fourier_hankel_interp(kvals, mass, rho_s, rvir, conc,
     else:
         Nmout = Nmin
 
-    logmassvals_interp = np.linspace(np.log10(mass.min()),
-                                     np.log10(mass.max()), Nmout)
-    mass_interp = 10**logmassvals_interp
+    assert Nkout > 0
+    assert Nmout > 0
 
-    # Get the corresponding values of rho_s, rvir, conc by linear interpolation
-    # TODO: improve this?
-    rho_s_spline = UnivariateSpline(x=logmass_in, y=rho_s, k=1, s=0)
-    rho_s_interp = rho_s_spline(logmassvals_interp)
+    # General case
+    if Nmout > 1:
+        logmassvals_interp = np.linspace(np.log10(mass.min()),
+                                         np.log10(mass.max()), Nmout)
+        mass_interp = 10**logmassvals_interp
 
-    rvir_spline = UnivariateSpline(x=logmass_in, y=rvir, k=1, s=0)
-    rvir_interp = rvir_spline(logmassvals_interp)
+        # Get the corresponding values of rho_s, rvir, conc by linear
+        # interpolation
+        # TODO: improve this?
+        rho_s_spline = UnivariateSpline(x=logmass_in, y=rho_s, k=1, s=0)
+        rho_s_interp = rho_s_spline(logmassvals_interp)
 
-    conc_spline = UnivariateSpline(x=logmass_in, y=conc, k=1, s=0)
-    conc_interp = conc_spline(logmassvals_interp)
+        rvir_spline = UnivariateSpline(x=logmass_in, y=rvir, k=1, s=0)
+        rvir_interp = rvir_spline(logmassvals_interp)
 
-    # Do the actual calculation in the coarser grid
-    uprof_interp = profile_ModNFW_fourier_hankel(kvals_interp, mass_interp,
-                                                 rho_s_interp, rvir_interp,
-                                                 conc_interp, gamma, hankelN,
-                                                 hankelh, ft_hankel)
+        conc_spline = UnivariateSpline(x=logmass_in, y=conc, k=1, s=0)
+        conc_interp = conc_spline(logmassvals_interp)
 
-    # And now interpolate to obtain the values at the desired points
-    # for now, simply linear interpolation.
-    # TODO: revise this?)
-    uprof_spline_2d = RectBivariateSpline(x=logkvals_interp,
-                                          y=logmassvals_interp, z=uprof_interp,
-                                          kx=1, ky=1, s=0)
+        # Do the actual calculation in the coarser grid
+        uprof_interp = profile_ModNFW_fourier_hankel(kvals_interp, mass_interp,
+                                                     rho_s_interp, rvir_interp,
+                                                     conc_interp, gamma,
+                                                     hankelN, hankelh,
+                                                     ft_hankel)
+        if Nkout > 1:
 
-    return uprof_spline_2d(x=logkvals_in, y=logmass_in, grid=True)
+            # And now interpolate to obtain the values at the desired points
+            # for now, simply linear interpolation.
+            # TODO: revise this?)
+            uprof_spline_2d = RectBivariateSpline(x=logkvals_interp,
+                                                  y=logmassvals_interp,
+                                                  z=uprof_interp,
+                                                  kx=1, ky=1, s=0)
+            uprof_output = uprof_spline_2d(x=logkvals_in, y=logmass_in,
+                                           grid=True)
+
+        # Nk == 1
+        else:
+            uprof_spline_1d_m = UnivariateSpline(x=logmassvals_interp,
+                                                 y=uprof_interp[0], k=1, s=0)
+            uprof_output_mass = uprof_spline_1d_m(x=logmass_in)
+            uprof_output = np.expand_dims(uprof_output_mass, 0)
+
+    # Nm == 1
+    else:
+
+        # In this case, calculate directly at input (single) values for mass
+        # and related quantities
+        uprof_interp = profile_ModNFW_fourier_hankel(kvals_interp, mass, rho_s,
+                                                     rvir, conc, gamma,
+                                                     hankelN, hankelh,
+                                                     ft_hankel)
+        # Need to interpolate over k
+        if Nkout > 1:
+            uprof_spline_1d_k = UnivariateSpline(x=logkvals_interp,
+                                                 y=uprof_interp[:, 0],
+                                                 k=1, s=0)
+            uprof_output_k = uprof_spline_1d_k(x=logkvals_in)
+            uprof_output = np.expand_dims(uprof_output_k, 1)
+
+        # Nk == 1
+        else:
+            # In this case, single value of (k, mass), no need to interpolat
+            # anything
+            uprof_output = uprof_interp
+
+    return uprof_output
 
 
 def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
@@ -607,7 +653,9 @@ class HaloProfileModNFW(HaloProfileNFW):
     def __init__(self, mass=1e10, f_gal=1.0, gamma=1.0,
                  redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
                  c_zero=11.0, beta=0.13,
-                 logM_min=10.0, logM_max=16.0, logM_step=0.05):
+                 logM_min=10.0, logM_max=16.0, logM_step=0.05,
+                 fourier_ft_hankel=None, fourier_Nk_interp=None,
+                 fourier_Nm_interp=None):
         """
         Parameters defining the NFW halo profile:
 
@@ -624,6 +672,10 @@ class HaloProfileModNFW(HaloProfileNFW):
                       Probably best to leave at the default values
         logM_min, logM_max, logM_step: parameters of the mass array used in
                       the calculation of M_star (needed for the concentration)
+        fourier_ft_hankel, fourier_Nk_interp, fourier_Nm_interp:
+            parameters defining the way in which we calculate the Fourier-space
+            profile (using Hankel+interpolation). Only needed for gamma!=1.
+            If they are 'None', will use default values in the function above.
 
         Class adapted to work for an array of masses, not only a single value
         """
@@ -645,6 +697,11 @@ class HaloProfileModNFW(HaloProfileNFW):
 
         # Add the gamma (inner slope)
         self.gamma = gamma
+
+        # Add parameters needed for the Fourier-transform of the profile
+        self.fourier_ft_hankel = fourier_ft_hankel
+        self.fourier_Nk_interp = fourier_Nk_interp
+        self.fourier_Nm_interp = fourier_Nm_interp
 
         # Add modified parameters that depend on both conc and gamma
         if self.gamma == 1:
@@ -700,5 +757,14 @@ class HaloProfileModNFW(HaloProfileNFW):
         of scales given as input.
         """
 
-        return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
-                                              self.rvir, self.conc_gal)
+        if self.gamma == 1:
+            return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
+                                                  self.rvir, self.conc_gal)
+        else:
+            return \
+                profile_ModNFW_fourier_hankel_interp(k, self.mass,
+                                                     self.rho_s_gal, self.rvir,
+                                                     self.conc_gal, self.gamma,
+                                                     ft_hankel=self.fourier_ft_hankel,
+                                                     Nk_interp=self.fourier_Nk_interp,
+                                                     Nm_interp=self.fourier_Nm_interp)
