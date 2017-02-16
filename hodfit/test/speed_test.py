@@ -74,3 +74,43 @@ wp_start = wp_hod(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start, alpha=alp
 t2 = time.time()
 
 print "Computing wp *without halo exclusion* took ", t2 - t1, " seconds."
+
+# Add possibility to change the profile
+def wp_hod_fgal_gamma(rp, log10Mmin, log10M1, alpha, fgal, gamma, hodclustering):
+    new_hod = hod.HODModel(hod_type=1, mass_min = 10**log10Mmin, mass_1 = 10**log10M1, alpha=alpha)
+    hodclustering.update_hod(new_hod)
+    hodclustering.update_profile_params(fgal, gamma)
+    return hc.get_wptotal(rpvals=rp, clustering_object=hodclustering, nr=NRCALC, npi=NPICALC, pimax=PIMAXCALC)
+
+fgal_test = 1.1
+gamma_test = 1.1
+
+
+hodclust_object = hc.hod_from_parameters(redshift=redshift, OmegaM0=OmegaM_0,
+                                         OmegaL0=OmegaL_0, powesp_matter_file=pkfile_matter_z,
+                                         powesp_linz0_file=pkfile_lin_z0, logM_min=6.,
+                                         logM_max=17., logM_step=0.01)
+hodclust_object.update_rvalues(rarray)
+
+t1 = time.time()
+wp_start = wp_hod_fgal_gamma(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start,
+                             alpha=alpha_start, fgal=fgal_test, gamma=gamma_test,
+                             hodclustering=hodclust_object)
+t2 = time.time()
+
+print "Computing wp *for the ModNFW* and *with default halo exclusion (=2)* took ", t2 - t1, " seconds."
+
+hodclust_object = hc.hod_from_parameters(redshift=redshift, OmegaM0=OmegaM_0,
+                                         OmegaL0=OmegaL_0, powesp_matter_file=pkfile_matter_z,
+                                         powesp_linz0_file=pkfile_lin_z0, logM_min=6.,
+                                         logM_max=17., logM_step=0.01, halo_exclusion_model=1)
+
+hodclust_object.update_rvalues(rarray)           
+
+t1 = time.time()
+wp_start = wp_hod_fgal_gamma(rp=rp, log10Mmin=logMmin_start, log10M1=logM1_start,
+                             alpha=alpha_start, fgal=fgal_test, gamma=gamma_test,
+                             hodclustering=hodclust_object)
+t2 = time.time()
+
+print "Computing wp *for the ModNFW* and *with simple halo exclusion (=1)* took ", t2 - t1, " seconds."                                                      
