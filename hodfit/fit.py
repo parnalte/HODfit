@@ -568,7 +568,9 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
         position = result[0]
         with open(out_chain_file, "a") as f:
             for k in range(position.shape[0]):
-                f.write("%d  %s\n" % (k, str(position[k])[1:-1]))
+                f.write("%d  %s\n" % (k,
+                                      np.array_str(position[k],
+                                                   max_line_width=1000)[1:-1]))
 
     # If we get this far, we are finished!
     print "MCMC samples in run written to file ", out_chain_file
