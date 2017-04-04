@@ -535,7 +535,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
         header_prof += "gamma "
 
     n_dimensions = n_dim_hod + n_dim_prof
-    header = header_hod + header_prof + "\n"
+    header = header_hod + header_prof + "log_posterior\n"
 
     # Write header to output file (so we make sure it exists later!)
     f = open(out_chain_file, 'w')
@@ -566,11 +566,14 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
                                  iterations=n_steps_per_walker,
                                  storechain=False):
         position = result[0]
+        lnprob = result[1]
+
         with open(out_chain_file, "a") as f:
             for k in range(position.shape[0]):
-                f.write("%d  %s\n" % (k,
-                                      np.array_str(position[k],
-                                                   max_line_width=1000)[1:-1]))
+                f.write("%d  %s  %g\n" %
+                        (k, np.array_str(position[k],
+                                         max_line_width=1000)[1:-1],
+                         lnprob[k]))
 
     # If we get this far, we are finished!
     print "MCMC samples in run written to file ", out_chain_file
@@ -652,6 +655,7 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
     # need anymore
     df_chain = df_chain[n_walkers*n_burn:]
     df_chain.drop('walker', axis=1, inplace=True)
+    df_chain.drop('log_posterior', axis=1, inplace=True)
 
     # First, define the 'partial percentiles' corresponding to the intervals
     # we have defined
@@ -760,6 +764,7 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
     # Remove burn-in period and drop the 'walker' column
     df_chain = df_chain[n_walkers*n_burn:]
     df_chain.drop('walker', axis=1, inplace=True)
+    df_chain.drop('log_posterior', axis=1, inplace=True)
 
     # Define total number of samples in the 'clean' chain
     n_samples_total = n_walkers*(n_iter - n_burn)
@@ -846,6 +851,7 @@ def diagnose_plot_chain(chain_file="chain.default",
     # Get list of parameters to consider
     param_list = df_chain.columns
     param_list = param_list.drop('walker')
+    param_list = param_list.drop('log_posterior')
 
     # And now, do the plot for each of the parameters in the chain
     for j, parameter in enumerate(param_list):
