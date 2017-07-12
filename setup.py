@@ -14,7 +14,7 @@ TODO:
 from setuptools import setup
 
 setup(name='hodfit',
-      version='0.6',
+      version='0.10.4',
       description='Fit HOD models to wp(rp) data',
       url='https://github.com/parnalte/HODfit',
       author='Pablo Arnalte-Mur',
@@ -23,6 +23,6 @@ setup(name='hodfit',
       packages=['hodfit'],
       scripts=['bin/hodfit-full'],
       install_requires=['numpy', 'pandas', 'scipy', 'matplotlib', 'emcee',
-                        'astropy', 'hankel'],
+                        'astropy', 'hankel', 'corner'],
       include_package_data=True,
       zip_safe=False)
