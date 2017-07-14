@@ -975,20 +975,24 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
-        logM0_init = config.getfloat('HODModel', 'logM0_init')
+
         siglogM_init = config.getfloat('HODModel', 'siglogM_init')
-        hod_param_init = [logMmin_init, logM1_init, alpha_init, logM0_init,
-                          siglogM_init]
+        logM0_init = config.getfloat('HODModel', 'logM0_init')
+
+        hod_param_init = [logMmin_init, logM1_init, alpha_init, siglogM_init,
+                          logM0_init]
 
         logMmin_lims = map(float,
                            config.get('HODModel', 'logMmin_limits').split())
         logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
         alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
-        logM0_lims = map(float, config.get('HODModel', 'logM0_limits').split())
+
         siglogM_lims = map(float,
                            config.get('HODModel', 'siglogM_limits').split())
+        logM0_lims = map(float, config.get('HODModel', 'logM0_limits').split())
+
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
-            logM0_lims + siglogM_lims
+            siglogM_lims + logM0_lims
 
     else:
         raise ValueError("Allowed values of HOD_type are 1 or 2")
