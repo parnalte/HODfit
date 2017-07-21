@@ -861,7 +861,7 @@ def diagnose_plot_chain(chain_file="chain.default",
 
         for i in range(n_walkers):
             walker = df_chain_group.get_group(i)
-            ax.plot(walker[parameter], 'k-', lw=0.5, alpha=0.2)
+            ax.plot(range(n_iter), walker[parameter], 'k-', lw=0.5, alpha=0.2)
         ax.set_xlabel("Step")
         ax.set_ylabel(parameter)
 
