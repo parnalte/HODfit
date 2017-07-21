@@ -851,7 +851,6 @@ def diagnose_plot_chain(chain_file="chain.default",
     # Get list of parameters to consider
     param_list = df_chain.columns
     param_list = param_list.drop('walker')
-    param_list = param_list.drop('log_posterior')
 
     # And now, do the plot for each of the parameters in the chain
     for j, parameter in enumerate(param_list):
@@ -872,8 +871,16 @@ def diagnose_plot_chain(chain_file="chain.default",
             ymin, ymax = ax.get_ylim()
             ax.vlines(n_burn, ymin, ymax, lw=2, linestyles='dashed',
                       color='red')
+            ax.set_ylim(ymin, ymax)
 
         ax.grid(True)
+
+        # For the case of plotting the log_posterior,
+        # change Y axis limits to not beeing too affected by initial steps
+        if parameter == "log_posterior":
+            max_lp = df_chain[parameter].max()
+            ax.set_ylim(max_lp - 20, max_lp + 2)
+
         fig.savefig(outfile)
 
     return 0
