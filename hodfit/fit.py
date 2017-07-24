@@ -42,10 +42,11 @@ def get_hod_from_params(hod_params, hod_type=1):
         new_hod = hodmodel.HODModel(hod_type=1, mass_min=10**log10Mmin,
                                     mass_1=10**log10M1, alpha=alpha)
     elif hod_type == 2:
-        log10Mmin, log10M1, alpha, siglogM, log10M0 = hod_params
+        log10Mmin, log10M1, alpha, log10siglogM, log10M0 = hod_params
         new_hod = hodmodel.HODModel(hod_type=2, mass_min=10**log10Mmin,
                                     mass_1=10**log10M1, alpha=alpha,
-                                    siglogM=siglogM, mass_0=10**log10M0)
+                                    siglogM=10**log10siglogM,
+                                    mass_0=10**log10M0)
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
@@ -178,15 +179,15 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
             lnprior_hod = -np.inf
 
     elif hod_type == 2:
-        logMmin, logM1, alpha, siglogM, logM0 = hod_params
+        logMmin, logM1, alpha, logsiglogM, logM0 = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
-            alpha_min, alpha_max, siglogM_min, siglogM_max, \
+            alpha_min, alpha_max, logsiglogM_min, logsiglogM_max, \
             logM0_min, logM0_max = hod_param_lims
 
         if logMm_min < logMmin < logMm_max and \
            logM1_min < logM1 < logM1_max and \
            alpha_min < alpha < alpha_max and \
-           siglogM_min < siglogM < siglogM_max and \
+           logsiglogM_min < logsiglogM < logsiglogM_max and \
            logM0_min < logM0 < logM0_max:
             lnprior_hod = 0.0
         else:
@@ -517,7 +518,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
 
     elif hod_type == 2:
         n_dim_hod = 5
-        header_hod = "walker logMmin logM1 alpha siglogM logM0 "
+        header_hod = "walker logMmin logM1 alpha logsiglogM logM0 "
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
@@ -983,23 +984,23 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
 
-        siglogM_init = config.getfloat('HODModel', 'siglogM_init')
+        logSiglogM_init = config.getfloat('HODModel', 'logSiglogM_init')
         logM0_init = config.getfloat('HODModel', 'logM0_init')
 
-        hod_param_init = [logMmin_init, logM1_init, alpha_init, siglogM_init,
-                          logM0_init]
+        hod_param_init = [logMmin_init, logM1_init, alpha_init,
+                          logSiglogM_init, logM0_init]
 
         logMmin_lims = map(float,
                            config.get('HODModel', 'logMmin_limits').split())
         logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
         alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
 
-        siglogM_lims = map(float,
-                           config.get('HODModel', 'siglogM_limits').split())
+        logSiglogM_lims = map(float,
+                              config.get('HODModel', 'logSiglogM_limits').split())
         logM0_lims = map(float, config.get('HODModel', 'logM0_limits').split())
 
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
-            siglogM_lims + logM0_lims
+            logSiglogM_lims + logM0_lims
 
     else:
         raise ValueError("Allowed values of HOD_type are 1 or 2")
