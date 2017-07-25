@@ -554,6 +554,77 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
 
     return uprof_out
 
+def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict, 
+                                gamma_dict, output_file="default.npz", 
+                                hankelN=12000, hankelh=1e-6, verbose=True):
+    """
+    Function to create and save to memory a grid of Fourier-space density
+    profiles, so that we can later use them to speed-up calculations
+    using interpolations.
+    The resulting grid will depend on three coordinates:
+        - log10(k * rvir)
+        - log10(concentration)
+        - gamma
+    The input dictionaries define the min/max/number of steps for each of the
+    coordinates.
+    The profile will be computed for mass=1 and rho_s=1, will need to
+    re-normalize later if appropriate.
+    """
+    
+    k_rvir = np.logspace(log_kvals_rvir_dict['min'],
+                         log_kvals_rvir_dict['max'],
+                         log_kvals_rvir_dict['N'])
+    log_k_rvir = np.log10(k_rvir)
+    
+    concentration = np.logspace(log_conc_dict['min'],
+                                log_conc_dict['max'],
+                                log_conc_dict['N'])
+    log_conc = np.log10(concentration)
+    
+    gamma_exp = np.linspace(gamma_dict['min'],
+                            gamma_dict['max'],
+                            gamma_dict['N'])
+    
+    ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN,
+                                                 h=hankelh)
+    
+    profile_grid = np.empty((log_kvals_rvir_dict['N'], log_conc_dict['N'],
+                             gamma_dict['N']))
+    
+    for i, conc in enumerate(concentration):
+        if verbose:
+            print "Concentration = %f (%d of %d)" % (conc, i,
+                                                     log_conc_dict['N'])
+        for j, g_exp in enumerate(gamma_exp):
+            norm_prof_func = \
+                lambda x: profile_ModNFW_config_scalar(rvals=x, rho_s=1,
+                                                       conc=conc, rvir=1,
+                                                       gamma_exp=g_exp)
+            profile_grid[:,i,j] = \
+                ft_hankel.transform(f=norm_prof_func, k=k_rvir,
+                                    ret_err=False, ret_cumsum=False)
+                
+    np.savez(output_file, log10_k_rvir=log_k_rvir,
+             log10_concentration=log_conc, gamma=gamma_exp,
+             profile_grid=profile_grid)
+    
+    log_file = output_file + ".log"
+    with open(log_file, 'a') as flog:
+        flog.write("Arrays in " + output_file + " created by function "
+                   "densprofile.create_profile_grid_fourier(), with options: \n")
+        flog.write("Limits for log(k * rvir) array: " + str(log_kvals_rvir_dict) + "\n")
+        flog.write("Limits for log(concentration) array: " + str(log_conc_dict) + "\n")
+        flog.write("Limits for gamma array: " + str(gamma_dict) + "\n")
+        flog.write("Hankel parameters: N = %d, h = %f\n" % (hankelN, hankelh))
+        
+    return 0
+            
+    
+    
+    
+
+
+
 
 class HaloProfileNFW(object):
     """Class that describes a Navarro-Frenk-White profile for a halo of a given
