@@ -1078,48 +1078,55 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        rlog=True,
                                        halo_exclusion_model=halo_exclusion_model)
 
-    # Now, we start the fun! First, get the best-fit model using Scipy
-    # minimisation methods
-    bestfit_params, bestfit_derived =\
-        find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
-                      wp_icov=icovmat_sel, param_lims=fit_param_lims,
-                      return_model=True, clustobj=hod_clust, hod_type=hod_type,
-                      fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
-                      nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
-                      pimax=wpcalc_pimax, fit_density=fit_density,
-                      data_dens=data_dens, data_dens_err=data_dens_err,
-                      data_logdens=data_logdens,
-                      data_logdens_err=data_logdens_err)
+    # Now, we start the fun! First, *if required*, get the best-fit model using
+    # Scipy minimisation methods
+    do_best_fit_minimization = \
+        config.getboolean('BestFitcalc', 'do_best_fit_minimization')
 
-    # Get goodness of fit for this
-    chi2_bestfit = chi2_fullmatrix(data_vals=wpsel, inv_covmat=icovmat_sel,
-                                   model_predictions=bestfit_derived[0])
-    ndof = len(rpsel) - n_dim_model
+    if do_best_fit_minimization:
+        bestfit_params, bestfit_derived =\
+            find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
+                          wp_icov=icovmat_sel, param_lims=fit_param_lims,
+                          return_model=True, clustobj=hod_clust, hod_type=hod_type,
+                          fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
+                          nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
+                          pimax=wpcalc_pimax, fit_density=fit_density,
+                          data_dens=data_dens, data_dens_err=data_dens_err,
+                          data_logdens=data_logdens,
+                          data_logdens_err=data_logdens_err)
 
-    # Add part coming from galaxy density, if needed
-    if fit_density == 1:
-        chi2_dens = pow((bestfit_derived[1]-data_dens) / data_dens_err, 2)
-        chi2_bestfit += chi2_dens
-        ndof += 1
-    elif fit_density == 2:
-        model_logdens = np.log10(bestfit_derived[1])
-        chi2_dens = pow((model_logdens-data_logdens) / data_logdens_err, 2)
-        chi2_bestfit += chi2_dens
-        ndof += 1
+        # Get goodness of fit for this
+        chi2_bestfit = chi2_fullmatrix(data_vals=wpsel, inv_covmat=icovmat_sel,
+                                       model_predictions=bestfit_derived[0])
+        ndof = len(rpsel) - n_dim_model
 
-    # Write results to 'results' file
-    with open(f_results_out, 'a') as res_out:
-        res_out.write("BEST-FIT MODEL:\n")
-        res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
-        res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
-        res_out.write("Number of degrees of freedom, ndof = %d\n" % ndof)
-        res_out.write("Chi^2/ndof = %.3g\n" % (chi2_bestfit/ndof))
-        res_out.write("Derived parameters: \n")
-        res_out.write("  Galaxy density = %.5g\n" % bestfit_derived[1])
-        res_out.write("  Mean halo mass = %.5g\n" % bestfit_derived[2])
-        res_out.write("  Mean galaxy bias = %.5g\n" % bestfit_derived[3])
-        res_out.write("  Satellite fraction = %.5g\n" % bestfit_derived[4])
-        res_out.write("-------------------------------------------\n")
+        # Add part coming from galaxy density, if needed
+        if fit_density == 1:
+            chi2_dens = pow((bestfit_derived[1]-data_dens) / data_dens_err, 2)
+            chi2_bestfit += chi2_dens
+            ndof += 1
+        elif fit_density == 2:
+            model_logdens = np.log10(bestfit_derived[1])
+            chi2_dens = pow((model_logdens-data_logdens) / data_logdens_err, 2)
+            chi2_bestfit += chi2_dens
+            ndof += 1
+
+        # Write results to 'results' file
+        with open(f_results_out, 'a') as res_out:
+            res_out.write("BEST-FIT MODEL:\n")
+            res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
+            res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
+            res_out.write("Number of degrees of freedom, ndof = %d\n" % ndof)
+            res_out.write("Chi^2/ndof = %.3g\n" % (chi2_bestfit/ndof))
+            res_out.write("Derived parameters: \n")
+            res_out.write("  Galaxy density = %.5g\n" % bestfit_derived[1])
+            res_out.write("  Mean halo mass = %.5g\n" % bestfit_derived[2])
+            res_out.write("  Mean galaxy bias = %.5g\n" % bestfit_derived[3])
+            res_out.write("  Satellite fraction = %.5g\n" % bestfit_derived[4])
+            res_out.write("-------------------------------------------\n")
+
+    else:
+        bestfit_params = None
 
     # Now, do the actual MCMC run to get the sample chain
     # First, read in relevant parameters and decide on the way to initialise
@@ -1134,7 +1141,10 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         cpos = None
         ball_size = None
     elif mcmc_init_type == 1:
-        cpos = bestfit_params
+        if do_best_fit_minimization:
+            cpos = bestfit_params
+        else:
+            cpos = fit_param_init
         ball_size = map(float,
                         config.get('MCMCcalc', 'mcmc_init_ball').split())
         assert len(ball_size) == n_dim_model
