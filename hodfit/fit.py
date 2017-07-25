@@ -712,12 +712,16 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
     return dict_output
 
 
-def print_conf_interval(ci_dictionary, perc_intervals=None):
+def print_conf_interval(ci_dictionary, perc_intervals=None,
+                        file_object=sys.stdout):
     """
     Function to print in a 'nice' way the confidence interval(s) computed
     by function analyse_mcmc.
     We assume the input dictionary has the format as the output of that
     function.
+    Will print to a file object that should be already open for
+    writting/appending, and that should be closed elsewhere (default is
+    sys.stdout)
     """
 
     if perc_intervals is not None:
@@ -725,9 +729,9 @@ def print_conf_interval(ci_dictionary, perc_intervals=None):
     else:
         n_int = len(ci_dictionary[ci_dictionary.keys()[0]]) - 1
 
-    print "~~~~~~~~"
+    file_object.write("~~~~~~~~\n")
     for param_name in ci_dictionary.keys():
-        print "Parameter: %s" % param_name
+        file_object.write("Parameter: %s\n" % param_name)
         for i in range(n_int):
             if perc_intervals is not None:
                 int_string = "%.1f %% interval for parameter: " %\
@@ -735,11 +739,11 @@ def print_conf_interval(ci_dictionary, perc_intervals=None):
             else:
                 int_string = "Interval for parameter: "
 
-            print int_string + "%.6g (-%.2g, +%.2g)" %\
-                (ci_dictionary[param_name][0],
-                 ci_dictionary[param_name][i+1][0],
-                 ci_dictionary[param_name][i+1][1])
-        print "~~~~~~~~"
+            file_object.write(int_string + "%.6g (-%.2g, +%.2g)\n" %
+                              (ci_dictionary[param_name][0],
+                               ci_dictionary[param_name][i+1][0],
+                               ci_dictionary[param_name][i+1][1]))
+        file_object.write("~~~~~~~~\n")
 
     return 0
 
@@ -1182,10 +1186,10 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         res_out.write("MCMC SAMPLING OF THE POSTERIOR:\n")
         res_out.write("Full sample chain written to file %s\n" % f_chain_out)
 
-    # TODO: change print_conf_interval to allow for direct output to file
-    with open(f_results_out, 'a') as sys.stdout:
+    with open(f_results_out, 'a') as res_out:
         print_conf_interval(ci_dictionary=mcmc_analysis_result,
-                            perc_intervals=ci_percent)
+                            perc_intervals=ci_percent,
+                            file_object=res_out)
 
     with open(f_results_out, 'a') as res_out:
         res_out.write("-------------------------------------------\n")
