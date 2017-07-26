@@ -1,0 +1,60 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Script to compute a grid of Fourier-space ModNFW profiles as function
+of concentration and gamma (slope) to be used later for interpolation.
+
+Created on Wed Jul 26 10:40:49 2017
+
+@author: pablo
+"""
+
+import sys
+
+from ConfigParser import ConfigParser
+from hodfit.densprofile import create_profile_grid_fourier
+
+
+def main(paramfile="profile_grid_params.ini", output_file="default.npz"):
+
+    # First of all, read in the configuration file
+    config = ConfigParser()
+    config.read(paramfile)
+
+    # Array of k*rvir
+    log_krvir = {}
+    log_krvir['min'] = config.getfloat('krvir_array', 'min')
+    log_krvir['max'] = config.getfloat('krvir_array', 'max')
+    log_krvir['N'] = config.getint('krvir_array', 'N')
+
+    # Array of conc
+    log_conc = {}
+    log_conc['min'] = config.getfloat('conc_array', 'min')
+    log_conc['max'] = config.getfloat('conc_array', 'max')
+    log_conc['N'] = config.getint('conc_array', 'N')
+
+    # Array of gamma
+    gamma = {}
+    gamma['min'] = config.getfloat('gamma_array', 'min')
+    gamma['max'] = config.getfloat('gamma_array', 'max')
+    gamma['N'] = config.getint('gamma_array', 'N')
+
+    # Hankel transforms
+    hankelN = config.getint('hankel_transform', 'hankelN')
+    hankelh = config.getfloat('hankel_transform', 'hankelh')
+
+    # Actually call the function
+    create_profile_grid_fourier(log_kvals_rvir_dict=log_krvir,
+                                log_conc_dict=log_conc, gamma_dict=gamma,
+                                output_file=output_file,
+                                hankelN=hankelN, hankelh=hankelh,
+                                verbose=True)
+    return 0
+
+
+# If running the script from command line, run the main function!
+if __name__ == "__main__":
+
+    main(*sys.argv[1:])
+
+    sys.exit(0)
