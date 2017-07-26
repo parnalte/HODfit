@@ -18,6 +18,7 @@ import astropy.cosmology as ac
 import scipy.special as spc
 from scipy import integrate
 from scipy.interpolate import UnivariateSpline, RectBivariateSpline
+from scipy.interpolate import RegularGridInterpolator
 import hankel
 
 import halomodel
@@ -554,8 +555,9 @@ def profile_ModNFW_fourier_hankel(kvals, mass, rho_s, rvir, conc,
 
     return uprof_out
 
-def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict, 
-                                gamma_dict, output_file="default.npz", 
+
+def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
+                                gamma_dict, output_file="default.npz",
                                 hankelN=12000, hankelh=1e-6, verbose=True):
     """
     Function to create and save to memory a grid of Fourier-space density
@@ -570,27 +572,27 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
     The profile will be computed for mass=1 and rho_s=1, will need to
     re-normalize later if appropriate.
     """
-    
+
     k_rvir = np.logspace(log_kvals_rvir_dict['min'],
                          log_kvals_rvir_dict['max'],
                          log_kvals_rvir_dict['N'])
     log_k_rvir = np.log10(k_rvir)
-    
+
     concentration = np.logspace(log_conc_dict['min'],
                                 log_conc_dict['max'],
                                 log_conc_dict['N'])
     log_conc = np.log10(concentration)
-    
+
     gamma_exp = np.linspace(gamma_dict['min'],
                             gamma_dict['max'],
                             gamma_dict['N'])
-    
+
     ft_hankel = hankel.SymmetricFourierTransform(ndim=3, N=hankelN,
                                                  h=hankelh)
-    
+
     profile_grid = np.empty((log_kvals_rvir_dict['N'], log_conc_dict['N'],
                              gamma_dict['N']))
-    
+
     for i, conc in enumerate(concentration):
         if verbose:
             print "Concentration = %f (%d of %d)" % (conc, i,
@@ -600,30 +602,105 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
                 lambda x: profile_ModNFW_config_scalar(rvals=x, rho_s=1,
                                                        conc=conc, rvir=1,
                                                        gamma_exp=g_exp)
-            profile_grid[:,i,j] = \
+            profile_grid[:, i, j] = \
                 ft_hankel.transform(f=norm_prof_func, k=k_rvir,
                                     ret_err=False, ret_cumsum=False)
-                
+
     np.savez(output_file, log10_k_rvir=log_k_rvir,
              log10_concentration=log_conc, gamma=gamma_exp,
              profile_grid=profile_grid)
-    
+
     log_file = output_file + ".log"
     with open(log_file, 'a') as flog:
         flog.write("Arrays in " + output_file + " created by function "
-                   "densprofile.create_profile_grid_fourier(), with options: \n")
-        flog.write("Limits for log(k * rvir) array: " + str(log_kvals_rvir_dict) + "\n")
-        flog.write("Limits for log(concentration) array: " + str(log_conc_dict) + "\n")
+                   "densprofile.create_profile_grid_fourier(), with options:\n")
+        flog.write("Limits for log(k * rvir) array: " +
+                   str(log_kvals_rvir_dict) + "\n")
+        flog.write("Limits for log(concentration) array: " +
+                   str(log_conc_dict) + "\n")
         flog.write("Limits for gamma array: " + str(gamma_dict) + "\n")
         flog.write("Hankel parameters: N = %d, h = %f\n" % (hankelN, hankelh))
-        
+
     return 0
-            
-    
-    
-    
 
 
+
+
+def profile_ModNFW_fourier_from_grid(kvals, mass, rho_s, rvir, conc,
+                                     gamma=1.0, log_krvir_grid=None,
+                                     log_conc_grid=None, gamma_grid=None,
+                                     profile_fourier_grid=None):
+    """
+    Function to compute the Fourier-space profile for the ModNFW model,
+    based on interpolation in a pre-computed grid.
+
+    Will need to re-scale the k values, get the correct normalization of the
+    profile.
+
+    It will also make a cut so that u(k) = 1 for k < 1/(10 rvir).
+
+    This function assumes mass, rho_s, rvir, conc are 1-D arrays of the same
+    length, Nm.
+    kvals is also a 1-D array of arbitrary length Nk.
+    gamma is just a float (not an array)
+
+    Returns an array of shape (Nk, Nm).
+    """
+
+    kvals = np.atleast_1d(kvals)
+    assert kvals.ndim == 1
+    Nk = len(kvals)
+
+    mass = np.atleast_1d(mass)
+    rho_s = np.atleast_1d(rho_s)
+    rvir = np.atleast_1d(rvir)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rho_s.ndim == 1
+    assert rvir.ndim == 1
+    assert conc.ndim == 1
+    Nm = len(mass)
+    assert Nm == len(rho_s) == len(rvir) == len(conc)
+
+    # Check that the grid arrays make sense
+    Nkgrid = len(log_krvir_grid)
+    Ncgrid = len(log_conc_grid)
+    Nggrid = len(gamma_grid)
+
+    assert profile_fourier_grid.shape == (Nkgrid, Ncgrid, Nggrid)
+
+    # Create the appropriate interpolator object, where we allow for linear
+    # extrapolation (expect to have as input very small k values, that will
+    # be solved by our cut)
+    prof_3d_interpolator = \
+        RegularGridInterpolator((log_krvir_grid, log_conc_grid, gamma_grid),
+                                profile_fourier_grid,
+                                bounds_error=False, fill_value=None)
+
+    # Prepare the input coordinates for the interpolation
+    coords_input = np.empty((Nk, Nm, 3))
+
+    log_krvir_input = np.log10(np.outer(kvals, rvir))
+    coords_input[:, :, 0] = log_krvir_input
+
+    log_conc_input = np.outer(np.ones(Nk), np.log10(conc))
+    coords_input[:, :, 1] = log_conc_input
+
+    gamma_input = gamma*np.ones((Nk, Nm))
+    coords_input[:, :, 2] = gamma_input
+
+    # Do the interpolation to get the un-normalized result
+    unnorm_profile = prof_3d_interpolator(coords_input)
+
+    # Normalise the profile,
+    # need to take into account the volume factor coming from the change
+    # k --> k*rvir
+    normed_uprofile = (rho_s/mass)*unnorm_profile*(rvir**3.0)
+
+    # Do our cut at small k
+    normed_uprofile[log_krvir_input < -1] = 1
+
+    return normed_uprofile
 
 
 class HaloProfileNFW(object):
