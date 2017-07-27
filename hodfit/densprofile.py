@@ -793,8 +793,6 @@ class HaloProfileModNFW(HaloProfileNFW):
     of a given mass, with additional free parameters f_gal and gamma
     following the model of Watson et al. (2010).
 
-    For now, only the addition of f_gal is implemented.
-
     We inherit from the class corresponding to the standard NFW profile.
     """
 
@@ -811,7 +809,7 @@ class HaloProfileModNFW(HaloProfileNFW):
         mass: mass of the halo (in M_sol) -- float or array of floats
         f_gal: relation between galaxy concentration and DM concentration
                For NFW, f_gal=1
-        gamma (NOT implemented): inner slope of the density profile
+        gamma: inner slope of the density profile
                For NFW, gamma=1
         redshift -- float
         cosmo: an astropy.cosmology object defining the cosmology
