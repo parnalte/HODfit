@@ -354,9 +354,10 @@ class HODClustering(object):
     for all xi(r) computations, so that, in the case of halo_exclusion_model=2
     we can pre-compute the values of P(r, M1, M2) needed for the calculation).
 
-    We add three parameters (fprof_ft_hankel, fprof_Nk_interp, fprof_Nm_interp),
-    to be passed to the profile object (in the ModNFW case), and that will
-    control the details of the calculation of the Fourier-space halo profiles.
+    We add four parameters (fprof_grid_data, fprof_ft_hankel, fprof_Nk_interp,
+    fprof_Nm_interp), to be passed to the profile object (in the ModNFW case),
+    and that will control the details of the calculation of the Fourier-space
+    halo profiles.
     If these parameters are None, the defaults defined in the appropriate
     functions will be used.
     Note that this fprof_ft_hankel can be different from the ft_hankel used
@@ -369,7 +370,8 @@ class HODClustering(object):
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  scale_dep_bias=True, use_mvir_limit=True,
                  halo_exclusion_model=2, ft_hankel=None,
-                 rvalues=np.logspace(-1, 2, 100), fprof_ft_hankel=None,
+                 rvalues=np.logspace(-1, 2, 100), fprof_grid_data=None,
+                 fprof_ft_hankel=None,
                  fprof_Nk_interp=None, fprof_Nm_interp=None):
 
         assert redshift >= 0
@@ -398,6 +400,7 @@ class HODClustering(object):
         self.halo_exclusion_model = halo_exclusion_model
         self.ft_hankel = ft_hankel
 
+        self.fprof_grid_data = fprof_grid_data
         self.fprof_ft_hankel = fprof_ft_hankel
         self.fprof_Nk_interp = fprof_Nk_interp
         self.fprof_Nm_interp = fprof_Nm_interp
@@ -445,6 +448,7 @@ class HODClustering(object):
                                               redshift=self.redshift,
                                               cosmo=self.cosmo,
                                               powesp_lin_0=self.powesp_lin_0,
+                                              fourier_grid_data=self.fprof_grid_data,
                                               fourier_ft_hankel=self.fprof_ft_hankel,
                                               fourier_Nk_interp=self.fprof_Nk_interp,
                                               fourier_Nm_interp=self.fprof_Nm_interp)
@@ -560,6 +564,7 @@ class HODClustering(object):
                                               redshift=self.redshift,
                                               cosmo=self.cosmo,
                                               powesp_lin_0=self.powesp_lin_0,
+                                              fourier_grid_data=self.fprof_grid_data,
                                               fourier_ft_hankel=self.fprof_ft_hankel,
                                               fourier_Nk_interp=self.fprof_Nk_interp,
                                               fourier_Nm_interp=self.fprof_Nm_interp)
@@ -823,6 +828,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         halo_exclusion_model=2, use_tinker_bias_params=True,
                         hankelN=6000, hankelh=0.0005, rmin=0.01, rmax=100.0,
                         nr=100, rlog=True,
+                        fprof_grid_data=None,
                         fprof_hankelN=12000, fprof_hankelh=1e-6,
                         fprof_Nk_interp=100, fprof_Nm_interp=100):
     """
@@ -911,6 +917,7 @@ Are you sure that is what you really want?")
                       use_mvir_limit=use_mvir_limit,
                       halo_exclusion_model=halo_exclusion_model,
                       ft_hankel=ft_hankel, rvalues=rvals_array,
+                      fprof_grid_data=fprof_grid_data,
                       fprof_ft_hankel=fprof_ft_hankel,
                       fprof_Nk_interp=fprof_Nk_interp,
                       fprof_Nm_interp=fprof_Nm_interp)
