@@ -802,6 +802,7 @@ class HaloProfileModNFW(HaloProfileNFW):
                  redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None,
                  c_zero=11.0, beta=0.13,
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
+                 fourier_grid_data=None,
                  fourier_ft_hankel=None, fourier_Nk_interp=None,
                  fourier_Nm_interp=None):
         """
@@ -820,8 +821,16 @@ class HaloProfileModNFW(HaloProfileNFW):
                       Probably best to leave at the default values
         logM_min, logM_max, logM_step: parameters of the mass array used in
                       the calculation of M_star (needed for the concentration)
+        fourier_grid_data: data corresponding to a pre-computed Fourier-space
+            profile to be used to compute the required profile using
+            interpolation.
+            It should be a NpzFile object as given by the
+            'create_profile_grid_fourier()' function.
+            If it is 'None', will actually calculate the profile, as described
+            below.
         fourier_ft_hankel, fourier_Nk_interp, fourier_Nm_interp:
-            parameters defining the way in which we calculate the Fourier-space
+            Only used if fourier_grid_data==None.
+            Parameters defining the way in which we calculate the Fourier-space
             profile (using Hankel+interpolation). Only needed for gamma!=1.
             If they are 'None', will use default values in the function above.
 
@@ -847,9 +856,16 @@ class HaloProfileModNFW(HaloProfileNFW):
         self.gamma = gamma
 
         # Add parameters needed for the Fourier-transform of the profile
-        self.fourier_ft_hankel = fourier_ft_hankel
-        self.fourier_Nk_interp = fourier_Nk_interp
-        self.fourier_Nm_interp = fourier_Nm_interp
+        # Decide whether to use pre-computed grid or direct
+        # calculation, and assign needed parameters in each case
+        if fourier_grid_data is not None:
+            self.fourier_use_grid = True
+            self.fourier_grid_data = fourier_grid_data
+        else:
+            self.fourier_use_grid = False
+            self.fourier_ft_hankel = fourier_ft_hankel
+            self.fourier_Nk_interp = fourier_Nk_interp
+            self.fourier_Nm_interp = fourier_Nm_interp
 
         # Add modified parameters that depend on both conc and gamma
         if self.gamma == 1:
@@ -908,6 +924,17 @@ class HaloProfileModNFW(HaloProfileNFW):
         if self.gamma == 1:
             return profile_NFW_fourier_parameters(k, self.mass, self.rho_s_gal,
                                                   self.rvir, self.conc_gal)
+
+        elif self.fourier_use_grid:
+            return \
+                profile_ModNFW_fourier_from_grid(k, self.mass, self.rho_s_gal,
+                                                 self.rvir, self.conc_gal,
+                                                 self.gamma,
+                                                 log_krvir_grid=self.fourier_grid_data['log10_k_rvir'],
+                                                 log_conc_grid=self.fourier_grid_data['log10_concentration'],
+                                                 gamma_grid=self.fourier_grid_data['gamma'],
+                                                 profile_fourier_grid=self.fourier_grid_data['profile_grid'])
+
         else:
             return \
                 profile_ModNFW_fourier_hankel_interp(k, self.mass,
