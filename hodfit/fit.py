@@ -1053,6 +1053,18 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     halo_exclusion_model = config.getint('HaloModelCalc',
                                          'halo_exclusion_model')
 
+    # Read in file containing pre-computed Fourier profiles,
+    # if not valid, set variable to None and will do direct calculation
+    fourier_prof_grid_file = config.get('HaloModelCalc',
+                                        'fourier_prof_grid_file')
+    try:
+        fprof_grid_data = np.load(fourier_prof_grid_file)
+    except:
+        if fit_gamma:
+            print "Warning: file " + fourier_prof_grid_file +\
+                " not valid for pre-computed profile, will do direct calculation."
+        fprof_grid_data = None
+
     # Read in parameters related to the calculation of wp in the models
     # We also define here the r-array needed to define the HODClustering object
     wpcalc_nr = config.getint('WpCalc', 'nr')
@@ -1081,7 +1093,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        logM_max=logMmax, logM_step=logMstep,
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,
                                        rlog=True,
-                                       halo_exclusion_model=halo_exclusion_model)
+                                       halo_exclusion_model=halo_exclusion_model,
+                                       fprof_grid_data=fprof_grid_data)
 
     # Now, we start the fun! First, *if required*, get the best-fit model using
     # Scipy minimisation methods
