@@ -869,7 +869,14 @@ def diagnose_plot_chain(chain_file="chain.default",
         ax.set_xlabel("Step")
         ax.set_ylabel(parameter)
 
-        if maxlike_values is not None:
+        # For the case of plotting the log_posterior,
+        # change Y axis limits to not beeing too affected by initial steps
+        if parameter == "log_posterior":
+            max_lp = df_chain[parameter].max()
+            ax.set_ylim(max_lp - 20, max_lp + 2)
+
+        # For 'regular' parameters, plot ML values if given
+        elif maxlike_values is not None:
             ax.hlines(maxlike_values[j], 0, n_iter, lw=2, color='blue')
 
         if n_burn is not None:
@@ -879,12 +886,6 @@ def diagnose_plot_chain(chain_file="chain.default",
             ax.set_ylim(ymin, ymax)
 
         ax.grid(True)
-
-        # For the case of plotting the log_posterior,
-        # change Y axis limits to not beeing too affected by initial steps
-        if parameter == "log_posterior":
-            max_lp = df_chain[parameter].max()
-            ax.set_ylim(max_lp - 20, max_lp + 2)
 
         fig.savefig(outfile)
 
