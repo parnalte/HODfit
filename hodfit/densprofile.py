@@ -569,8 +569,10 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
         - gamma
     The input dictionaries define the min/max/number of steps for each of the
     coordinates.
-    The profile will be computed for mass=1 and rho_s=1, will need to
-    re-normalize later if appropriate.
+    The profile will be computed for mass=1, and with the appropriate value
+    of rho_s to be properly normalized (i.e., u(k) --> 1 as k --> 0).
+    As this should be called only once before the runs, I use the
+    slower (but more precise) function 'alt_rhos_modNFW' to compute rho_s.
     """
 
     k_rvir = np.logspace(log_kvals_rvir_dict['min'],
@@ -598,13 +600,15 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
             print "Concentration = %f (%d of %d)" % (conc, i,
                                                      log_conc_dict['N'])
         for j, g_exp in enumerate(gamma_exp):
+
+            rho_s = alt_rhos_modNFW(mass=1, rvir=1, conc=conc, gamma=g_exp)
             norm_prof_func = \
                 lambda x: profile_ModNFW_config_scalar(rvals=x, rho_s=1,
                                                        conc=conc, rvir=1,
                                                        gamma_exp=g_exp)
             profile_grid[:, i, j] = \
-                ft_hankel.transform(f=norm_prof_func, k=k_rvir,
-                                    ret_err=False, ret_cumsum=False)
+                rho_s*ft_hankel.transform(f=norm_prof_func, k=k_rvir,
+                                          ret_err=False, ret_cumsum=False)
 
     np.savez(output_file, log10_k_rvir=log_k_rvir,
              log10_concentration=log_conc, gamma=gamma_exp,
@@ -624,8 +628,6 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
     return 0
 
 
-
-
 def profile_ModNFW_fourier_from_grid(kvals, mass, rho_s, rvir, conc,
                                      gamma=1.0, log_krvir_grid=None,
                                      log_conc_grid=None, gamma_grid=None,
@@ -641,6 +643,9 @@ def profile_ModNFW_fourier_from_grid(kvals, mass, rho_s, rvir, conc,
 
     This function assumes mass, rho_s, rvir, conc are 1-D arrays of the same
     length, Nm.
+    (However, values of rho_s, mass are not actually used, as we assume
+    that the pre-computed profile is already correctly normalized).
+
     kvals is also a 1-D array of arbitrary length Nk.
     gamma is just a float (not an array)
 
@@ -689,13 +694,8 @@ def profile_ModNFW_fourier_from_grid(kvals, mass, rho_s, rvir, conc,
     gamma_input = gamma*np.ones((Nk, Nm))
     coords_input[:, :, 2] = gamma_input
 
-    # Do the interpolation to get the un-normalized result
-    unnorm_profile = prof_3d_interpolator(coords_input)
-
-    # Normalise the profile,
-    # need to take into account the volume factor coming from the change
-    # k --> k*rvir
-    normed_uprofile = (rho_s/mass)*unnorm_profile*(rvir**3.0)
+    # Do the interpolation to get the result
+    normed_uprofile = prof_3d_interpolator(coords_input)
 
     # Do our cut at small k
     normed_uprofile[log_krvir_input < -1] = 1
