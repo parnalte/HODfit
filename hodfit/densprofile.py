@@ -859,6 +859,7 @@ class HaloProfileModNFW(HaloProfileNFW):
                  logM_min=10.0, logM_max=16.0, logM_step=0.05,
                  four_grid_log_krvir=None, four_grid_log_conc=None,
                  four_grid_gamma=None, four_grid_profile=None,
+                 four_grid_rhos=None,
                  fourier_ft_hankel=None, fourier_Nk_interp=None,
                  fourier_Nm_interp=None):
         """
@@ -878,11 +879,12 @@ class HaloProfileModNFW(HaloProfileNFW):
         logM_min, logM_max, logM_step: parameters of the mass array used in
                       the calculation of M_star (needed for the concentration)
         four_grid_log_krvir, four_grid_log_conc, four_grid_gamma,
-        four_grid_profile: data corresponding to a pre-computed Fourier-space
-            profile to be used to compute the required profile using
-            interpolation.
+        four_grid_profile, four_grid_rhos: data corresponding to a pre-computed
+            Fourier-space profile to be used to compute the required profile
+            and normalization using interpolation.
             These should be the arrays needed by the
-            profile_ModNFW_fourier_from_grid() function.
+            profile_ModNFW_fourier_from_grid() and rhos_ModNFW_from_grid()
+            functions.
             If either of these is 'None', will actually calculate the profile,
             as described below.
         fourier_ft_hankel, fourier_Nk_interp, fourier_Nm_interp:
@@ -918,13 +920,15 @@ class HaloProfileModNFW(HaloProfileNFW):
         if (four_grid_log_krvir is not None) and \
            (four_grid_log_conc is not None) and\
            (four_grid_gamma is not None) and\
-           (four_grid_profile is not None):
+           (four_grid_profile is not None) and\
+           (four_grid_rhos is not None):
 
             self.fourier_use_grid = True
             self.four_grid_log_krvir = four_grid_log_krvir
             self.four_grid_log_conc = four_grid_log_conc
             self.four_grid_gamma = four_grid_gamma
             self.four_grid_profile = four_grid_profile
+            self.four_grid_rhos = four_grid_rhos
 
         else:
             self.fourier_use_grid = False
@@ -937,6 +941,14 @@ class HaloProfileModNFW(HaloProfileNFW):
             self.rho_s_gal = rhos_from_charact(mass=self.mass,
                                                rvir=self.rvir,
                                                conc=self.conc_gal)
+        elif self.fourier_use_grid:
+            self.rho_s_gal = rhos_ModNFW_from_grid(mass=self.mass,
+                                                   rvir=self.rvir,
+                                                   conc=self.conc_gal,
+                                                   gamma=self.gamma,
+                                                   log_conc_grid=self.four_grid_log_conc,
+                                                   gamma_grid=self.four_grid_gamma,
+                                                   rho_s_unit_grid=self.four_grid_rhos)
         else:
             self.rho_s_gal = rhos_from_charact_modNFW(mass=self.mass,
                                                       rvir=self.rvir,

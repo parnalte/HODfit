@@ -373,6 +373,7 @@ class HODClustering(object):
                  rvalues=np.logspace(-1, 2, 100),
                  fprof_grid_log_krvir=None, fprof_grid_log_conc=None,
                  fprof_grid_gamma=None, fprof_grid_profile=None,
+                 fprof_grid_rhos=None,
                  fprof_ft_hankel=None,
                  fprof_Nk_interp=None, fprof_Nm_interp=None):
 
@@ -406,6 +407,7 @@ class HODClustering(object):
         self.fprof_grid_log_conc = fprof_grid_log_conc
         self.fprof_grid_gamma = fprof_grid_gamma
         self.fprof_grid_profile = fprof_grid_profile
+        self.fprof_grid_rhos = fprof_grid_rhos
         self.fprof_ft_hankel = fprof_ft_hankel
         self.fprof_Nk_interp = fprof_Nk_interp
         self.fprof_Nm_interp = fprof_Nm_interp
@@ -457,6 +459,7 @@ class HODClustering(object):
                                               four_grid_log_conc=self.fprof_grid_log_conc,
                                               four_grid_gamma=self.fprof_grid_gamma,
                                               four_grid_profile=self.fprof_grid_profile,
+                                              four_grid_rhos=self.fprof_grid_rhos,
                                               fourier_ft_hankel=self.fprof_ft_hankel,
                                               fourier_Nk_interp=self.fprof_Nk_interp,
                                               fourier_Nm_interp=self.fprof_Nm_interp)
@@ -576,6 +579,7 @@ class HODClustering(object):
                                               four_grid_log_conc=self.fprof_grid_log_conc,
                                               four_grid_gamma=self.fprof_grid_gamma,
                                               four_grid_profile=self.fprof_grid_profile,
+                                              four_grid_rhos=self.fprof_grid_rhos,
                                               fourier_ft_hankel=self.fprof_ft_hankel,
                                               fourier_Nk_interp=self.fprof_Nk_interp,
                                               fourier_Nm_interp=self.fprof_Nm_interp)
@@ -841,6 +845,7 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         nr=100, rlog=True,
                         fprof_grid_log_krvir=None, fprof_grid_log_conc=None,
                         fprof_grid_gamma=None, fprof_grid_profile=None,
+                        fprof_grid_rhos=None,
                         fprof_hankelN=12000, fprof_hankelh=1e-6,
                         fprof_Nk_interp=100, fprof_Nm_interp=100):
     """
@@ -933,6 +938,7 @@ Are you sure that is what you really want?")
                       fprof_grid_log_conc=fprof_grid_log_conc,
                       fprof_grid_gamma=fprof_grid_gamma,
                       fprof_grid_profile=fprof_grid_profile,
+                      fprof_grid_rhos=fprof_grid_rhos,
                       fprof_ft_hankel=fprof_ft_hankel,
                       fprof_Nk_interp=fprof_Nk_interp,
                       fprof_Nm_interp=fprof_Nm_interp)
