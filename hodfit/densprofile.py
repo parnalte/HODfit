@@ -571,6 +571,8 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
     coordinates.
     The profile will be computed for mass=1, and with the appropriate value
     of rho_s to be properly normalized (i.e., u(k) --> 1 as k --> 0).
+    We also save an array containing the computed rho_s (for mass=1,
+    rvir=1) as function of log10(concentration) and gamma for later use.
     As this should be called only once before the runs, I use the
     slower (but more precise) function 'alt_rhos_modNFW' to compute rho_s.
     """
@@ -595,6 +597,8 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
     profile_grid = np.empty((log_kvals_rvir_dict['N'], log_conc_dict['N'],
                              gamma_dict['N']))
 
+    rho_s_grid = np.empty((log_conc_dict['N'], gamma_dict['N']))
+
     for i, conc in enumerate(concentration):
         if verbose:
             print "Concentration = %f (%d of %d)" % (conc, i,
@@ -609,10 +613,11 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
             profile_grid[:, i, j] = \
                 rho_s*ft_hankel.transform(f=norm_prof_func, k=k_rvir,
                                           ret_err=False, ret_cumsum=False)
+            rho_s_grid[i, j] = rho_s
 
     np.savez(output_file, log10_k_rvir=log_k_rvir,
              log10_concentration=log_conc, gamma=gamma_exp,
-             profile_grid=profile_grid)
+             profile_grid=profile_grid, rho_s_unit=rho_s_grid)
 
     log_file = output_file + ".log"
     with open(log_file, 'a') as flog:
@@ -701,6 +706,58 @@ def profile_ModNFW_fourier_from_grid(kvals, mass, rho_s, rvir, conc,
     normed_uprofile[log_krvir_input < -1] = 1
 
     return normed_uprofile
+
+
+def rhos_ModNFW_from_grid(mass=1e10, rvir=1.0, conc=10.0, gamma=1.0,
+                          log_conc_grid=None, gamma_grid=None,
+                          rho_s_unit_grid=None):
+    """
+    Function to obtain the normalization parameter rho_s for a ModNFW
+    profile by interpolation from a pre-computed grid of 'unit'
+    rho_s as function of concentration and gamma, as obtained from
+    'create_profile_grid_fourier()'.
+    We do linear interpolation over 'log(rho_s)' instead of 'rho_s' as we
+    expect this to give better results given the typical dependence of
+    rho_s on concentration
+    """
+
+    mass = np.atleast_1d(mass)
+    rvir = np.atleast_1d(rvir)
+    conc = np.atleast_1d(conc)
+    assert mass.ndim == 1
+    assert rvir.ndim == 1
+    assert conc.ndim == 1
+    Nm = len(mass)
+    assert Nm == len(rvir) == len(conc)
+
+    # Check that the grid arrays make sense
+    Ncgrid = len(log_conc_grid)
+    Nggrid = len(gamma_grid)
+
+    assert rho_s_unit_grid.shape == (Ncgrid, Nggrid)
+
+    # Create the appropriate interpolator object, where we allow for linear
+    # extrapolation (although we do not expect to need this, hopefully
+    # pre-computed grid in conc-gamma plane should cover all the needed
+    # parameter space)
+    rho_s_unit_2d_interpolator = \
+        RegularGridInterpolator((log_conc_grid, gamma_grid),
+                                np.log(rho_s_unit_grid),
+                                bounds_error=False, fill_value=None)
+
+    # Prepare the input coordinates for the interpolation
+    coords_input = np.empty((Nm, 2))
+    coords_input[:, 0] = np.log10(conc)
+    coords_input[:, 1] = gamma*np.ones(Nm)
+
+    # Do the interpolation to get the 'normalised' result
+    rho_s_unit_out = np.exp(rho_s_unit_2d_interpolator(coords_input))
+
+    # Re-normalise to get the desired normalisation for our values of
+    # mass, rvir
+    rho_s_out = rho_s_unit_out*mass*(rvir**(-3))
+
+    return rho_s_out
 
 
 class HaloProfileNFW(object):
