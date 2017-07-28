@@ -1059,11 +1059,19 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                         'fourier_prof_grid_file')
     try:
         fprof_grid_data = np.load(fourier_prof_grid_file)
+        fprof_grid_log_krvir = fprof_grid_data['log10_k_rvir']
+        fprof_grid_log_conc = fprof_grid_data['log10_concentration']
+        fprof_grid_gamma = fprof_grid_data['gamma']
+        fprof_grid_profile = fprof_grid_data['profile_grid']
     except:
         if fit_gamma:
-            print "Warning: file " + fourier_prof_grid_file +\
-                " not valid for pre-computed profile, will do direct calculation."
-        fprof_grid_data = None
+            print("Warning: file " + fourier_prof_grid_file +
+                  " not valid for pre-computed profile,"
+                  " will do direct calculation.")
+        fprof_grid_log_krvir = None
+        fprof_grid_log_conc = None
+        fprof_grid_gamma = None
+        fprof_grid_profile = None
 
     # Read in parameters related to the calculation of wp in the models
     # We also define here the r-array needed to define the HODClustering object
@@ -1094,7 +1102,10 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,
                                        rlog=True,
                                        halo_exclusion_model=halo_exclusion_model,
-                                       fprof_grid_data=fprof_grid_data)
+                                       fprof_grid_log_krvir=fprof_grid_log_krvir,
+                                       fprof_grid_log_conc=fprof_grid_log_conc,
+                                       fprof_grid_gamma=fprof_grid_gamma,
+                                       fprof_grid_profile=fprof_grid_profile)
 
     # Now, we start the fun! First, *if required*, get the best-fit model using
     # Scipy minimisation methods
