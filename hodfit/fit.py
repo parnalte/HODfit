@@ -47,6 +47,11 @@ def get_hod_from_params(hod_params, hod_type=1):
                                     mass_1=10**log10M1, alpha=alpha,
                                     siglogM=10**log10siglogM,
                                     mass_0=10**log10M0)
+    elif hod_type == 3:
+        log10Mmin, log10M1, alpha, log10siglogM = hod_params
+        new_hod = hodmodel.HODModel(hod_type=3, mass_min=10**log10Mmin,
+                                    mass_1=10**log10M1, alpha=alpha,
+                                    siglogM=10**log10siglogM)
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
@@ -59,7 +64,8 @@ def ndim_from_hod_type(hod_type=1):
     """
     Function to obtain the number of dimensions (parameters) for the HOD
     part of the fit, depending on the HOD type.
-    For the moment only hod_type=1 (Kravtsov) and hod_type=2 (Zheng) are
+    For the moment only hod_type=1 (Kravtsov), hod_type=2 (Zheng) and
+    hod_type=3 (Zheng - only 4 parameters) are
     implemented.
     """
 
@@ -67,8 +73,10 @@ def ndim_from_hod_type(hod_type=1):
         return 3
     elif hod_type == 2:
         return 5
+    elif hod_type == 3:
+        return 4
     else:
-        raise RuntimeError("Only implemented values of HOD_type are 1 or 2")
+        raise RuntimeError("Only implemented values of HOD_type are 1, 2 or 3")
 
 
 def wp_hod(rp, fit_params, clustobj=None, hod_type=1, fit_f_gal=False,
@@ -144,8 +152,8 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     """
     Returns the (un-normalised) log(P) for a flat prior on the HOD parameters
     and, if needed, on the ModNFW profile parameters.
-    Mass parameters are assumed to be given as log10(M_x) (so the prior will
-    be flat on the latter), alpha and sigma_logM are assumed to be given
+    Mass parameters and sigma_logM are assumed to be given as log10(M_x)
+    (so the prior will be flat on the latter), alpha is assumed to be given
     directly.
     For the profile parameters, f_gal is assumed to be given as log10(f_gal),
     while gamma is assumed to be given directly.
@@ -189,6 +197,20 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
            alpha_min < alpha < alpha_max and \
            logsiglogM_min < logsiglogM < logsiglogM_max and \
            logM0_min < logM0 < logM0_max:
+            lnprior_hod = 0.0
+        else:
+            lnprior_hod = -np.inf
+            
+    elif hod_type == 3:
+        logMmin, logM1, alpha, logsiglogM = hod_params
+        logMm_min, logMm_max, logM1_min, logM1_max, \
+            alpha_min, alpha_max, \
+            logsiglogM_min, logsiglogM_max = hod_param_lims
+
+        if logMm_min < logMmin < logMm_max and \
+           logM1_min < logM1 < logM1_max and \
+           alpha_min < alpha < alpha_max and \
+           logsiglogM_min < logsiglogM < logsiglogM_max:
             lnprior_hod = 0.0
         else:
             lnprior_hod = -np.inf
@@ -519,6 +541,10 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     elif hod_type == 2:
         n_dim_hod = 5
         header_hod = "walker logMmin logM1 alpha logsiglogM logM0 "
+        
+    elif hod_type == 3:
+        n_dim_hod = 4
+        header_hod = "walker logMmin logM1 alpha logsiglogM "
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
@@ -1006,9 +1032,31 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
             logSiglogM_lims + logM0_lims
+            
+    elif hod_type == 3:
+        n_dim_hod_model = 4
+        logMmin_init = config.getfloat('HODModel', 'logMmin_init')
+        logM1_init = config.getfloat('HODModel', 'logM1_init')
+        alpha_init = config.getfloat('HODModel', 'alpha_init')
+
+        logSiglogM_init = config.getfloat('HODModel', 'logSiglogM_init')
+
+        hod_param_init = [logMmin_init, logM1_init, alpha_init,
+                          logSiglogM_init]
+
+        logMmin_lims = map(float,
+                           config.get('HODModel', 'logMmin_limits').split())
+        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
+        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+
+        logSiglogM_lims = map(float,
+                              config.get('HODModel', 'logSiglogM_limits').split())
+
+        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims + \
+            logSiglogM_lims
 
     else:
-        raise ValueError("Allowed values of HOD_type are 1 or 2")
+        raise ValueError("Allowed values of HOD_type are 1, 2 or 3")
 
     # Read in the parameters defining the possible additional fit to the
     # profile parameters

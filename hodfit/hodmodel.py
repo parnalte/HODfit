@@ -34,19 +34,20 @@ class HODModel(object):
         hod_type: defines the functional form of the model:
             hod_type=1 --> Kravtsov (2004) model
             hod_type=2 --> Zheng (2005) model
+            hod_type=3 --> Zheng (2005) model, with M0=Mmin (4 free parameters)
         mass_min: minimum mass for a halo to contain a galaxy
         mass_1: mass of the haloes that contain, on average, one satellite
             galaxy
         alpha: slope of the power-law relation
         siglogM: width of the transition from 0 to 1 centrals.
-            Only used if hod_type==2
+            Only used if hod_type==2 or hod_type==3
         mass_0: minimum mass for a halo to contain a satellite galaxy.
             Only used if hod_type==2
         """
 
-        if(hod_type not in [1, 2]):
+        if(hod_type not in [1, 2, 3]):
             raise ValueError("Allowed hod_type values are "
-                             "1 (Kravtsov) and 2 (Zheng)")
+                             "1 (Kravtsov), 2 (Zheng) or 3 (Zheng - 4params.)")
 
         self.hod_type = hod_type
         self.mass_min = mass_min
@@ -56,6 +57,11 @@ class HODModel(object):
         if(hod_type == 2):
             self.siglogM = siglogM
             self.mass_0 = mass_0
+
+        elif(hod_type == 3):
+            self.siglogM = siglogM
+            self.mass_0 = mass_min
+            self.hod_type = 2
 
         # Mass-dependent arrays we will eventually use
         # Will need to be initialized elsewhere
