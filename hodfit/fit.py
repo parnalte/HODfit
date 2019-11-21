@@ -364,7 +364,9 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
 
 
 def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
-                  return_model=False, minim_method='Powell', clustobj=None,
+                  return_model=False, minim_method='Powell',
+                  minim_options={'xtol': 1e-12, 'ftol': 1e-12},
+                  clustobj=None,
                   hod_type=1, fit_f_gal=False, fit_gamma=False,
                   nr=100, pimin=0.001, pimax=400, npi=100,
                   fit_density=0, data_dens=None, data_dens_err=None,
@@ -375,8 +377,9 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
     likelihood result when using flat priors).
 
     The maximization is done using standard scipy.optimize functions.
-    'minim_method' defines the actual method used (this will be passed to
-    optimize.minimize)
+    'minim_method' defines the actual method used, and 'minim_options'
+    define additional options for the minimizer (these will be passed to
+    optimize.minimize).
 
     The output of the function is defined by return_model:
     * If return_model==False:
@@ -399,7 +402,8 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
                                 nr, pimin, pimax, npi, fit_density,
                                 data_dens, data_dens_err, data_logdens,
                                 data_logdens_err),
-                          method=minim_method)
+                          method=minim_method,
+                          options=minim_options)
 
     # Actually print the results
     print "Results of the maximization of the log(Posterior):"
