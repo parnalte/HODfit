@@ -200,7 +200,7 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
             lnprior_hod = 0.0
         else:
             lnprior_hod = -np.inf
-            
+
     elif hod_type == 3:
         logMmin, logM1, alpha, logsiglogM = hod_params
         logMm_min, logMm_max, logM1_min, logM1_max, \
@@ -411,6 +411,7 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
 
     # Get the best parameters values for output
     fit_params_best = maxpost_result['x']
+    minim_result_message = maxpost_result['message']
 
     # Now, if needed, get other results for this model
     if return_model:
@@ -444,10 +445,10 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
 
         return fit_params_best, (wp_best, galdens_best,
                                  meanhalomass_best, meangalbias_best,
-                                 fracsat_best)
+                                 fracsat_best), minim_result_message
 
     else:
-        return fit_params_best
+        return fit_params_best, minim_result_message
 
 
 def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
@@ -545,7 +546,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     elif hod_type == 2:
         n_dim_hod = 5
         header_hod = "walker logMmin logM1 alpha logsiglogM logM0 "
-        
+
     elif hod_type == 3:
         n_dim_hod = 4
         header_hod = "walker logMmin logM1 alpha logsiglogM "
@@ -1036,7 +1037,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
             logSiglogM_lims + logM0_lims
-            
+
     elif hod_type == 3:
         n_dim_hod_model = 4
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
@@ -1168,7 +1169,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         config.getboolean('BestFitcalc', 'do_best_fit_minimization')
 
     if do_best_fit_minimization:
-        bestfit_params, bestfit_derived =\
+        bestfit_params, bestfit_derived, bestfit_message =\
             find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
                           wp_icov=icovmat_sel, param_lims=fit_param_lims,
                           return_model=True, clustobj=hod_clust, hod_type=hod_type,
@@ -1198,6 +1199,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         # Write results to 'results' file
         with open(f_results_out, 'a') as res_out:
             res_out.write("BEST-FIT MODEL:\n")
+            res_out.write("Minimization termination message: " + bestfit_message + "\n")
             res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
             res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
             res_out.write("Number of degrees of freedom, ndof = %d\n" % ndof)
