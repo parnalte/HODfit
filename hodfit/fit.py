@@ -1199,6 +1199,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         # Write results to 'results' file
         with open(f_results_out, 'a') as res_out:
             res_out.write("BEST-FIT MODEL:\n")
+            res_out.write("Best-fit calculation finished at: " + time.asctime() + "\n")
             res_out.write("Minimization termination message: " + bestfit_message + "\n")
             res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
             res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
