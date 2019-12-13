@@ -22,6 +22,7 @@ from configparser import ConfigParser
 import numpy as np
 import pandas as pd
 from scipy import optimize
+from scipy import stats
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -145,6 +146,52 @@ def chi2_fullmatrix(data_vals, inv_covmat, model_predictions):
 
     y_diff = data_vals - model_predictions
     return np.dot(y_diff, np.dot(inv_covmat, y_diff))
+
+
+def lnprior_gauss(fit_params, param_lims, hod_type=1, fit_f_gal=False,
+                  fit_gamma=False):
+    """
+    Fast function to use a Normal prior on the parameters (with M_x and
+    f_gal given in log-form).
+    As this is intended only as a fast test, the parameters of the prior
+    will be hard-coded here, and we will ignore the info. on param_lims.
+    """
+    # First, figure out what are the contents of fit_params
+    # and of param_lims
+    n_dim_hod = ndim_from_hod_type(hod_type)
+    n_dim_prof = fit_f_gal + fit_gamma
+    assert len(fit_params) == n_dim_hod + n_dim_prof
+    assert len(param_lims) == 2*len(fit_params)
+
+    # Get the part of the prior corresponding to the HOD parameters
+    hod_params = fit_params[:n_dim_hod]
+    hod_param_lims = param_lims[:2*n_dim_hod]
+
+    if hod_type == 1:
+        logMmin, logM1, alpha = hod_params
+        lnprior_logMmin = stats.norm(10.0, 5.0).logpdf(logMmin)
+        lnprior_logM1 = stats.norm(10.0, 5.0).logpdf(logM1)
+        lnprior_alpha = stats.norm(1.0, 2.0).logpdf(alpha)
+
+        lnprior_hod = lnprior_logMmin + lnprior_logM1 + lnprior_alpha
+
+    else: #Really, we only do this for hod_type=1
+        lnprior_hod = 0.0
+
+
+    # Get the part of the prior corresponding to the ModNFW profile parameters
+    lnprior_prof = 0.0
+    if fit_f_gal:
+        log_fgal = fit_params[n_dim_hod]
+        lnprior_prof += stats.norm(0.0, 1.0).logpdf(log_fgal)
+
+    if fit_gamma:
+        gamma = fit_params[-1]
+        lnprior_prof += stats.norm(1.0, 1.0).logpdf(gamma)
+
+    # Return the total prior
+    return lnprior_hod + lnprior_prof
+
 
 
 def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
@@ -315,7 +362,8 @@ def lnposterior(fit_params, rp, wp, wp_icov, param_lims, clustobj=None,
       parameter (same options as in HODModel class).
     """
 
-    lp = lnprior_flat(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
+    # lp = lnprior_flat(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
+    lp = lnprior_gauss(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
 
     if not np.isfinite(lp):
         return -np.inf
