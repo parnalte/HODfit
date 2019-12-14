@@ -169,8 +169,8 @@ def lnprior_gauss(fit_params, param_lims, hod_type=1, fit_f_gal=False,
 
     if hod_type == 1:
         logMmin, logM1, alpha = hod_params
-        lnprior_logMmin = stats.norm(10.0, 5.0).logpdf(logMmin)
-        lnprior_logM1 = stats.norm(10.0, 5.0).logpdf(logM1)
+        lnprior_logMmin = stats.norm(11.0, 6.0).logpdf(logMmin)
+        lnprior_logM1 = stats.norm(12.0, 6.0).logpdf(logM1)
         lnprior_alpha = stats.norm(1.0, 2.0).logpdf(alpha)
 
         lnprior_hod = lnprior_logMmin + lnprior_logM1 + lnprior_alpha
@@ -183,7 +183,7 @@ def lnprior_gauss(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     lnprior_prof = 0.0
     if fit_f_gal:
         log_fgal = fit_params[n_dim_hod]
-        lnprior_prof += stats.norm(0.0, 1.0).logpdf(log_fgal)
+        lnprior_prof += stats.norm(0.0, 2.0).logpdf(log_fgal)
 
     if fit_gamma:
         gamma = fit_params[-1]
