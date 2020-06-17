@@ -1,1 +1,2 @@
 include hodfit/hodfit_params_default.ini
+include hodfit/profile_grid_params.ini
