@@ -365,7 +365,7 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
 
 def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
                   return_model=False, minim_method='Powell',
-                  minim_options={'xtol': 1e-12, 'ftol': 1e-12},
+                  minim_options={'xtol': 1e-12, 'ftol': 1e-12, 'maxiter': None},
                   clustobj=None,
                   hod_type=1, fit_f_gal=False, fit_gamma=False,
                   nr=100, pimin=0.001, pimax=400, npi=100,
@@ -1169,10 +1169,20 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         config.getboolean('BestFitcalc', 'do_best_fit_minimization')
 
     if do_best_fit_minimization:
+        best_fit_minim_method = config.get('BestFitcalc',
+                                           'best_fit_minim_method')
+        best_fit_minim_options = {
+            'xtol': config.getfloat('BestFitcalc', 'best_fit_minim_xtol'),
+            'ftol': config.getfloat('BestFitcalc', 'best_fit_minim_xtol'),
+            'maxiter': config.getint('BestFitcalc', 'best_fit_minim_maxiter'),
+        }
         bestfit_params, bestfit_derived, bestfit_message =\
             find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
                           wp_icov=icovmat_sel, param_lims=fit_param_lims,
-                          return_model=True, clustobj=hod_clust, hod_type=hod_type,
+                          return_model=True,
+                          minim_method=best_fit_minim_method,
+                          minim_options=best_fit_minim_options,
+                          clustobj=hod_clust, hod_type=hod_type,
                           fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                           nr=wpcalc_nr, npi=wpcalc_npi, pimin=wpcalc_pimin,
                           pimax=wpcalc_pimax, fit_density=fit_density,
