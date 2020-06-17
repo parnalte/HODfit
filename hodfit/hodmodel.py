@@ -17,7 +17,7 @@ import scipy.special as spc
 from scipy import integrate
 import astropy.cosmology as ac
 
-import densprofile
+from . import densprofile
 
 
 class HODModel(object):

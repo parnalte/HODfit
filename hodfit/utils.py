@@ -122,7 +122,7 @@ class PowerSpectrum(object):
 
         sortind = kvals.argsort()
 
-        if((sortind != range(self.N)).any()):
+        if((sortind != list(range(self.N))).any()):
             self.k = kvals[sortind]
             self.pk = pkvals[sortind]
             raise UserWarning("k-values passed to PowerSpectrum class were "

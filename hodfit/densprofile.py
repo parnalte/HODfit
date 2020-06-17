@@ -21,8 +21,8 @@ from scipy.interpolate import UnivariateSpline, RectBivariateSpline
 from scipy.interpolate import RegularGridInterpolator
 import hankel
 
-import halomodel
-from utils import RHO_CRIT_UNITS
+from . import halomodel
+from .utils import RHO_CRIT_UNITS
 
 
 def Delta_vir(redshift=0, cosmo=ac.WMAP7):
@@ -601,8 +601,7 @@ def create_profile_grid_fourier(log_kvals_rvir_dict, log_conc_dict,
 
     for i, conc in enumerate(concentration):
         if verbose:
-            print "Concentration = %f (%d of %d)" % (conc, i,
-                                                     log_conc_dict['N'])
+            print(f"Concentration = {conc} ({i} of {log_conc_dict['N']})")
         for j, g_exp in enumerate(gamma_exp):
 
             rho_s = alt_rhos_modNFW(mass=1, rvir=1, conc=conc, gamma=g_exp)

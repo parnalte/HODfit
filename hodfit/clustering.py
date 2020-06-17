@@ -21,10 +21,10 @@ import hankel
 from scipy import integrate
 from scipy import interpolate
 
-import halomodel
-import hodmodel
-import densprofile
-from utils import PowerSpectrum, xir2wp_pi
+from . import halomodel
+from . import hodmodel
+from . import densprofile
+from .utils import PowerSpectrum, xir2wp_pi
 
 
 ################################
@@ -943,8 +943,8 @@ Are you sure that is what you really want?")
                       fprof_Nk_interp=fprof_Nk_interp,
                       fprof_Nm_interp=fprof_Nm_interp)
 
-    print "New HODClustering object created, \
-galaxy density = %.4g (h/Mpc)^3 " % model_clustering_object.gal_dens
+    print("New HODClustering object created, "
+          f"galaxy density = {model_clustering_object.gal_dens:.4} (h/Mpc)^3")
 
     return model_clustering_object
 

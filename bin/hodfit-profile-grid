@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Script to compute a grid of Fourier-space ModNFW profiles as function
@@ -11,7 +11,7 @@ Created on Wed Jul 26 10:40:49 2017
 
 import sys
 
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from hodfit.densprofile import create_profile_grid_fourier
 
 

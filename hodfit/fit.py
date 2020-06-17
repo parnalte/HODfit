@@ -17,7 +17,7 @@ Some of these functions are taken/adapted from the emcee tutorials.
 import os
 import time
 import sys
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 import numpy as np
 import pandas as pd
@@ -27,8 +27,8 @@ import corner
 import matplotlib.pyplot as plt
 
 
-import hodmodel
-import clustering
+from . import hodmodel
+from . import clustering
 
 
 def get_hod_from_params(hod_params, hod_type=1):
@@ -406,8 +406,8 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
                           options=minim_options)
 
     # Actually print the results
-    print "Results of the maximization of the log(Posterior):"
-    print maxpost_result
+    print("Results of the maximization of the log(Posterior):")
+    print(maxpost_result)
 
     # Get the best parameters values for output
     fit_params_best = maxpost_result['x']
@@ -608,7 +608,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
                          lnprob[k]))
 
     # If we get this far, we are finished!
-    print "MCMC samples in run written to file ", out_chain_file
+    print("MCMC samples in run written to file ", out_chain_file)
 
     return 0
 
@@ -643,7 +643,7 @@ def read_chain_file(inchain_file="chain.default"):
     # And get no. of iterations from the total no. of samples
     n_samples = len(df)
 
-    n_iterations = n_samples/n_walkers
+    n_iterations = n_samples//n_walkers  # Number of iterations should be integer
 
     # Check there was no problem
     assert n_samples == (n_iterations*n_walkers)
@@ -758,7 +758,7 @@ def print_conf_interval(ci_dictionary, perc_intervals=None,
     if perc_intervals is not None:
         n_int = len(perc_intervals)
     else:
-        n_int = len(ci_dictionary[ci_dictionary.keys()[0]]) - 1
+        n_int = len(ci_dictionary[list(ci_dictionary.keys())[0]]) - 1
 
     file_object.write("~~~~~~~~\n")
     for param_name in ci_dictionary.keys():
@@ -1008,10 +1008,10 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         alpha_init = config.getfloat('HODModel', 'alpha_init')
         hod_param_init = [logMmin_init, logM1_init, alpha_init]
 
-        logMmin_lims = map(float,
-                           config.get('HODModel', 'logMmin_limits').split())
-        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
-        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+        logMmin_lims = list(map(float,
+                           config.get('HODModel', 'logMmin_limits').split()))
+        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
+        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims
 
     elif hod_type == 2:
@@ -1026,14 +1026,14 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init, logM0_init]
 
-        logMmin_lims = map(float,
-                           config.get('HODModel', 'logMmin_limits').split())
-        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
-        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+        logMmin_lims = list(map(float,
+                           config.get('HODModel', 'logMmin_limits').split()))
+        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
+        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
 
-        logSiglogM_lims = map(float,
-                              config.get('HODModel', 'logSiglogM_limits').split())
-        logM0_lims = map(float, config.get('HODModel', 'logM0_limits').split())
+        logSiglogM_lims = list(map(float,
+                              config.get('HODModel', 'logSiglogM_limits').split()))
+        logM0_lims = list(map(float, config.get('HODModel', 'logM0_limits').split()))
 
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
             logSiglogM_lims + logM0_lims
@@ -1049,13 +1049,13 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init]
 
-        logMmin_lims = map(float,
-                           config.get('HODModel', 'logMmin_limits').split())
-        logM1_lims = map(float, config.get('HODModel', 'logM1_limits').split())
-        alpha_lims = map(float, config.get('HODModel', 'alpha_limits').split())
+        logMmin_lims = list(map(float,
+                           config.get('HODModel', 'logMmin_limits').split()))
+        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
+        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
 
-        logSiglogM_lims = map(float,
-                              config.get('HODModel', 'logSiglogM_limits').split())
+        logSiglogM_lims = list(map(float,
+                              config.get('HODModel', 'logSiglogM_limits').split()))
 
         hod_param_lims = logMmin_lims + logM1_lims + alpha_lims + \
             logSiglogM_lims
@@ -1073,8 +1073,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     if fit_f_gal:
         n_dim_prof_model += 1
         log_fgal_init = config.getfloat('ModNFWModel', 'log_fgal_init')
-        log_fgal_lims = map(float,
-                            config.get('ModNFWModel', 'log_fgal_limits').split())
+        log_fgal_lims = list(map(float,
+                            config.get('ModNFWModel', 'log_fgal_limits').split()))
         prof_param_init += [log_fgal_init]
         prof_param_lims += log_fgal_lims
 
@@ -1082,8 +1082,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     if fit_gamma:
         n_dim_prof_model += 1
         gamma_init = config.getfloat('ModNFWModel', 'gamma_init')
-        gamma_lims = map(float,
-                         config.get('ModNFWModel', 'gamma_limits').split())
+        gamma_lims = list(map(float,
+                         config.get('ModNFWModel', 'gamma_limits').split()))
         prof_param_init += [gamma_init]
         prof_param_lims += gamma_lims
 
@@ -1242,8 +1242,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
             cpos = bestfit_params
         else:
             cpos = fit_param_init
-        ball_size = map(float,
-                        config.get('MCMCcalc', 'mcmc_init_ball').split())
+        ball_size = list(map(float,
+                        config.get('MCMCcalc', 'mcmc_init_ball').split()))
         assert len(ball_size) == n_dim_model
 
     else:
@@ -1266,8 +1266,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Note this will depend on the burn in period we assume, better to play
     # with this taking into account the actual chain
     n_burn_in = config.getint('MCMCanalysis', 'burn_in_iterations')
-    ci_percent = map(float,
-                     config.get('MCMCanalysis', 'conf_intervals').split())
+    ci_percent = list(map(float,
+                     config.get('MCMCanalysis', 'conf_intervals').split()))
 
     mcmc_analysis_result = analyse_mcmc(
         chain_file=f_chain_out, n_burn=n_burn_in,
