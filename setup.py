@@ -23,6 +23,6 @@ setup(name='hodfit',
       packages=['hodfit'],
       scripts=['bin/hodfit-full', 'bin/hodfit-profile-grid'],
       install_requires=['numpy', 'pandas', 'scipy', 'matplotlib', 'emcee',
-                        'astropy', 'hankel', 'corner'],
+                        'astropy', 'hankel', 'corner', 'camb'],
       include_package_data=True,
       zip_safe=False)
