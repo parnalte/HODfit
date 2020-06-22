@@ -181,7 +181,8 @@ def get_camb_pk(redshift=0,
                 value.
     - Cosmological parameters to pass to CAMB (OmegaM0, OmegaL0, OmegaB0,
         H0, Pinit_As, Pinit_n): will convert to 'physical densities' when
-        needed. We assume Omega_nu=0.
+        needed. We'll leave the parameters related to neutrino content at the
+        default values.
     - nonlinear: whether to compute the non-linear P(k) (using HaloFit)
     - halofit_model: If nonlinear, which HaloFit version to use. If it is None,
         use CAMB's default model (currently, `mead`). See documentation for
@@ -209,7 +210,7 @@ def get_camb_pk(redshift=0,
 #        raise UserWarning("You are using a non-flat cosmology. \
 #            Are you sure that is what you really want?")
 
-    params.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, mnu=0)
+    params.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk)
     params.InitPower.set_params(As=Pinit_As, ns=Pinit_n)
 
     # Set non-linearity parameters
