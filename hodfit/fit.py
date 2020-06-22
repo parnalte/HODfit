@@ -1097,8 +1097,31 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     redshift = config.getfloat('Cosmology', 'redshift')
     omega_matter = config.getfloat('Cosmology', 'omega_matter')
     omega_lambda = config.getfloat('Cosmology', 'omega_lambda')
-    pk_lin_z0_file = config.get('Cosmology', 'pk_linear_z0')
-    pk_matter_z_file = config.get('Cosmology', 'pk_matter_z')
+    omega_baryon = config.getfloat('Cosmology', 'omega_baryon')
+    hubble_constant = config.getfloat('Cosmology', 'hubble_constant')
+    use_camb = config.getboolean('Cosmology', 'use_camb')
+
+    if use_camb:
+        init_power_amplitude = config.getfloat('Cosmology',
+                                               'init_power_amplitude')
+        init_power_spect_index = config.getfloat('Cosmology',
+                                                 'init_power_spect_index')
+        camb_halofit_version = config.get('Cosmology', 'camb_halofit_version')
+        camb_kmax = config.getfloat('Cosmology', 'camb_kmax')
+        camb_k_per_logint = config.getint('Cosmology', 'camb_k_per_logint')
+
+        pk_lin_z0_file = None
+        pk_matter_z_file = None
+
+    else:
+        pk_lin_z0_file = config.get('Cosmology', 'pk_linear_z0')
+        pk_matter_z_file = config.get('Cosmology', 'pk_matter_z')
+
+        init_power_amplitude = None
+        init_power_spect_index = None
+        camb_halofit_version = None
+        camb_kmax = None
+        camb_k_per_logint = None
 
     logMmin = config.getfloat('HaloModelCalc', 'logMmin')
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
@@ -1148,7 +1171,13 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # modify these later if needed)
     hod_clust =\
         clustering.hod_from_parameters(redshift=redshift, OmegaM0=omega_matter,
-                                       OmegaL0=omega_lambda,
+                                       OmegaL0=omega_lambda, OmegaB0=omega_baryon,
+                                       H0=hubble_constant, use_camb=use_camb,
+                                       init_power_amplitude=init_power_amplitude,
+                                       init_power_spect_index=init_power_spect_index,
+                                       camb_halofit_version=camb_halofit_version,
+                                       camb_kmax=camb_kmax,
+                                       camb_k_per_logint=camb_k_per_logint,
                                        powesp_matter_file=pk_matter_z_file,
                                        powesp_linz0_file=pk_lin_z0_file,
                                        hod_type=hod_type, f_gal=1.0,

@@ -24,7 +24,7 @@ from scipy import interpolate
 from . import halomodel
 from . import hodmodel
 from . import densprofile
-from .utils import PowerSpectrum, xir2wp_pi
+from .utils import PowerSpectrum, xir2wp_pi, get_camb_pk
 
 
 ################################
@@ -833,8 +833,14 @@ class HODClustering(object):
 
 
 def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
-                        powesp_matter_file="test/WMAP7_z0_matterpower.dat",
-                        powesp_linz0_file="test/WMAP7_linz0_matterpower.dat",
+                        OmegaB0=0.046, H0=70.0, use_camb=True,
+                        init_power_amplitude=2.2e-9,
+                        init_power_spect_index=0.96,
+                        camb_halofit_version=None,
+                        camb_kmax=200.0,
+                        camb_k_per_logint=30,
+                        powesp_matter_file=None,
+                        powesp_linz0_file=None,
                         hod_type=1, hod_mass_min=1e11, hod_mass_1=1e12,
                         hod_alpha=1.0, hod_siglogM=0.5, hod_mass_0=1e11,
                         f_gal=1.0, gamma=1.0,
@@ -867,21 +873,30 @@ I am not sure these models are valid there, proceed at your own risk.")
 Are you sure that is what you really want?")
     cosmo_object = ac.LambdaCDM(H0=100, Om0=OmegaM0, Ode0=OmegaL0)
 
-    # Build the needed PowerSpectrum objects
-    try:
-        km, pkm = np.loadtxt(powesp_matter_file, usecols=range(2), unpack=True)
-        pk_matter_object = PowerSpectrum(kvals=km, pkvals=pkm)
-    except:
-        raise ValueError("Error reading matter power spectrum file %s" %
-                         powesp_matter_file)
+    # Calculate or read in the needed PowerSpectrum objects
+    if use_camb:
+        pk_matter_object = get_camb_pk(redshift=redshift,
+                                       OmegaM0=OmegaM0, OmegaL0=OmegaL0,
+                                       OmegaB0=OmegaB0, H0=H0,
+                                       Pinit_As=init_power_amplitude,
+                                       Pinit_n=init_power_spect_index,
+                                       nonlinear=True,
+                                       halofit_model=camb_halofit_version,
+                                       kmax=camb_kmax,
+                                       k_per_logint=camb_k_per_logint)
 
-    try:
-        kl, pkl = np.loadtxt(powesp_linz0_file, usecols=range(2), unpack=True)
-        pk_linz0_object = PowerSpectrum(kvals=kl, pkvals=pkl)
-    except:
-        raise ValueError(
-            "Error reading z=0 linear matter power spectrum file %s" %
-            powesp_linz0_file)
+        pk_linz0_object = get_camb_pk(redshift=0,
+                                       OmegaM0=OmegaM0, OmegaL0=OmegaL0,
+                                       OmegaB0=OmegaB0, H0=H0,
+                                       Pinit_As=init_power_amplitude,
+                                       Pinit_n=init_power_spect_index,
+                                       nonlinear=False,
+                                       kmax=camb_kmax,
+                                       k_per_logint=camb_k_per_logint)
+
+    else:
+        pk_matter_object = PowerSpectrum.fromfile(powesp_matter_file)
+        pk_linz0_object = PowerSpectrum.fromfile(powesp_linz0_file)
 
     # Build the HOD object
     hod_object = hodmodel.HODModel(hod_type=hod_type, mass_min=hod_mass_min,
