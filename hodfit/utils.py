@@ -132,6 +132,15 @@ class PowerSpectrum(object):
             self.k = kvals
             self.pk = pkvals
 
+    @classmethod
+    def fromfile(cls, filename):
+        """
+        Constructor for the class that reads directly the k, pk tabulated
+        values from a file.
+        """
+        kvals, pkvals = np.loadtxt(filename, usecols=range(2), unpack=True)
+        return cls(kvals, pkvals)
+
     def pkinterp(self, kval):
         """
         Function that interpolates linearly the power spectrum using the
