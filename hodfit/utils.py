@@ -10,6 +10,7 @@
 import numpy as np
 from scipy import integrate
 import hankel
+import camb
 
 # GLOBAL CONSTANTS
 
@@ -153,3 +154,79 @@ class PowerSpectrum(object):
                                      ret_cumsum=False, inverse=True)
 
         return xivals
+
+
+def get_camb_pk(redshift=0,
+                OmegaM0=0.27, OmegaL0=0.73, OmegaB0=0.04,
+                H0=70.0, Pinit_As = 2.2e-9, Pinit_n = 0.96,
+                nonlinear=False, halofit_model=None,
+                kmin=1e-4, kmax=20.0, k_per_logint=10):
+    """
+    Function that obtains a sampled matter Power Spectrum for a set of
+    parameters using the CAMB library. We print also the value of \sigma_8
+    obtained for these parameters (comparable to the 'standard' one if
+    redshift=0 and nonlinear=False).
+
+    Parameters:
+    - redshift: redshift for which we calculate the P(k). It should be a single
+                value.
+    - Cosmological parameters to pass to CAMB (OmegaM0, OmegaL0, OmegaB0,
+        H0, Pinit_As, Pinit_n): will convert to 'physical densities' when
+        needed. We assume Omega_nu=0.
+    - nonlinear: whether to compute the non-linear P(k) (using HaloFit)
+    - halofit_model: If nonlinear, which HaloFit version to use. If it is None,
+        use CAMB's default model (currently, `mead`). See documentation for
+        `camb.nonlinear.Halofit.set_params` for valid options.
+    - kmin, kmax, k_per_logint: parameters defining the output array in k, following
+        CAMB's terminology
+
+    Output:
+    - A PowerSpectrum object
+    """
+
+    # Get default set of CAMB Parameters
+    params = camb.CAMBparams()
+
+    # Set cosmology parameters
+    h = H0/100
+    ombh2 = OmegaB0*h*h
+    omch2 = (OmegaM0 - OmegaB0)*h*h
+    omk = 1 - OmegaM0 - OmegaL0
+    if np.abs(omk) < 1e-5:
+        omk = 0
+    if omk != 0:
+        print(f"You are using a non-flat cosmology (OmegaK = {omk})."
+              "Are you sure this is what you really want?")
+#        raise UserWarning("You are using a non-flat cosmology. \
+#            Are you sure that is what you really want?")
+
+    params.set_cosmology(H0=H0, ombh2=ombh2, omch2=omch2, omk=omk, mnu=0)
+    params.InitPower.set_params(As=Pinit_As, ns=Pinit_n)
+
+    # Set non-linearity parameters
+    if nonlinear:
+        nl_label = "Non-linear"
+        params.NonLinear = camb.model.NonLinear_both
+        if halofit_model is not None:
+            params.NonLinearModel.set_params(halofit_version=halofit_model)
+    else:
+        nl_label = "Linear"
+        params.NonLinear = camb.model.NonLinear_none
+
+    # Set parameters for P(k)
+    params.set_matter_power(redshifts=(redshift,), kmax=kmax,
+                            k_per_logint=k_per_logint)
+
+    # Do the calculation
+    # results = camb.get_results(params)
+    results = camb.get_transfer_functions(params)
+    npoints = (np.log(kmax) - np.log(kmin))*k_per_logint
+    npoints = np.int(npoints)
+    kh, _, pk = results.get_matter_power_spectrum(minkh=kmin, maxkh=kmax, npoints=npoints)
+    sigma8 =  results.get_sigma8()
+
+    print(f"{nl_label} power spectrum calculated at z={redshift} for the given parameters.")
+    print(f"For this P(k) we obtain \sigma_8={sigma8[0]:.5}")
+
+    # Get the output as a PowerSpectrum object
+    return PowerSpectrum(kvals=kh, pkvals=pk[0])
