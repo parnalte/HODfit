@@ -11,9 +11,12 @@ Created on Thu May 21 16:29:21 2015
 
 import matplotlib
 matplotlib.use('AGG')
+import warnings
 
 import sys
 
 from hodfit.fit import main
 
-main(*sys.argv[1:])
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=RuntimeWarning)
+    main(*sys.argv[1:])
