@@ -148,60 +148,102 @@ def chi2_fullmatrix(data_vals, inv_covmat, model_predictions):
     return np.dot(y_diff, np.dot(inv_covmat, y_diff))
 
 
-def lnprior_gauss(fit_params, param_lims, hod_type=1, fit_f_gal=False,
-                  fit_gamma=False):
+def build_prior_singlepar(prior_type=0, min_par=-1.0, max_par=1.0,
+                          mean_par=None, std_par=None):
     """
-    Fast function to use a Normal prior on the parameters (with M_x and
-    f_gal given in log-form).
-    As this is intended only as a fast test, the parameters of the prior
-    will be hard-coded here, and we will ignore the info. on param_lims.
+    Function to obtain the prior function for a single parameter.
+
+    Input parameters:
+        prior_type: 0 for Uniform, 1 for Gaussian priors
+        min, max: used if `prior_type=0`
+        mean, std: used if `prior_type=1`
+
+    Returns:
+        A 'frozen' pdf object from `scipy.stats` describing the prior PDF.
     """
-    # First, figure out what are the contents of fit_params
-    # and of param_lims
-    n_dim_hod = ndim_from_hod_type(hod_type)
-    n_dim_prof = fit_f_gal + fit_gamma
-    assert len(fit_params) == n_dim_hod + n_dim_prof
-    assert len(param_lims) == 2*len(fit_params)
 
-    # Get the part of the prior corresponding to the HOD parameters
-    hod_params = fit_params[:n_dim_hod]
-    hod_param_lims = param_lims[:2*n_dim_hod]
+    if prior_type not in [0,1]:
+        raise ValueError("Only allowed values of the prior type are "
+                         "0 (for Uniform) and 1 (for Gaussian).")
 
+    if prior_type == 0:
+        return stats.uniform(min_par, max_par - min_par)
+
+    elif prior_type == 1:
+        return stats.norm(mean_par, std_par)
+
+
+def get_list_of_params(hod_type, fit_f_gal, fit_gamma):
+    """
+    Function to obtain a list of the *names* of the parameters being used,
+    depending on the HOD type used, and on the ModNFW profile parameters that
+    are being used.
+    """
+
+    # First, figure out what are parameters that we need to consider from HOD
     if hod_type == 1:
-        logMmin, logM1, alpha = hod_params
-        lnprior_logMmin = stats.norm(11.0, 6.0).logpdf(logMmin)
-        lnprior_logM1 = stats.norm(12.0, 6.0).logpdf(logM1)
-        lnprior_alpha = stats.norm(1.0, 2.0).logpdf(alpha)
+        params_list = ['logMmin', 'logM1', 'alpha']
+    elif hod_type == 2:
+        params_list = ['logMmin', 'logM1', 'alpha', 'logsiglogM', 'logM0']
+    elif hod_type == 3:
+        params_list = ['logMmin', 'logM1', 'alpha', 'logsiglogM']
+    else:
+        raise ValueError(f"The HOD parameterisation with " +
+                         f"hod_type = {hod_type} has not yet been implemented!")
 
-        lnprior_hod = lnprior_logMmin + lnprior_logM1 + lnprior_alpha
-
-    else: #Really, we only do this for hod_type=1
-        lnprior_hod = 0.0
-
-
-    # Get the part of the prior corresponding to the ModNFW profile parameters
-    lnprior_prof = 0.0
+    # Now, figure out what are the parameters to consider from the ModNFW
     if fit_f_gal:
-        log_fgal = fit_params[n_dim_hod]
-        lnprior_prof += stats.norm(0.0, 2.0).logpdf(log_fgal)
-
+        params_list.append('log_fgal')
     if fit_gamma:
-        gamma = fit_params[-1]
-        lnprior_prof += stats.norm(1.0, 1.0).logpdf(gamma)
+        params_list.append('gamma')
 
-    # Return the total prior
-    return lnprior_hod + lnprior_prof
+    return params_list
 
 
+def build_prior_allpars(prior_definitions, hod_type=1, fit_f_gal=False,
+                        fit_gamma=False):
+    """
+    Function to obtain the prior functions for all the variables that will
+    be included in the fit.
 
-def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
+    The definition of the prior (on each parameter independently) is given
+    by the `prior_definitions` input parameter. It contains a (nested) dictionary:
+    for each (key, value) pair, the key is the name of a parameter, and the value
+    is a dictionary containing the values to be passed to the
+    `build_prior_singlepar` function.
+
+    We allow the use of different HOD parameterisations using the 'hod_type'
+    parameter (same options as in HODModel class), and to decide whether
+    f_gal and gamma are included through the use of fit_f_gal, fit_gamma.
+
+    Returns:
+        A dictionary containing, for each parameter a (key, value) pair, where:
+            - key is the name of the parameter
+            - value is a 'frozen' `scipy.stats` PDF objects corresponding to the prior
+    """
+    # First, figure out what are parameters that we need to consider
+    full_params_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+
+    # And now, for all the needed parameters, obtain the corresponding prior PDF
+    prior_pdf_dict = {}
+    for par in full_params_list:
+        prior_pdf_dict[par] = build_prior_singlepar(**prior_definitions[par])
+
+    return prior_pdf_dict
+
+
+def lnprior_from_pdf(fit_params, prior_pdf_dict, hod_type=1, fit_f_gal=False,
                  fit_gamma=False):
     """
-    Returns the (un-normalised) log(P) for a flat prior on the HOD parameters
-    and, if needed, on the ModNFW profile parameters.
-    Mass parameters and sigma_logM are assumed to be given as log10(M_x)
-    (so the prior will be flat on the latter), alpha is assumed to be given
-    directly.
+    Returns the value of the ln(prior) at a given point (given by `fit_params`)
+    in the parameter space of the HOD parameters and, if needed,
+    of the ModNFW profile parameters.
+
+    The prior pdf functions are given in the `prior_pdf_dict` dictionary
+    (output of the `build_prior_allpars` function).
+
+    Mass parameters and sigma_logM are assumed to be given as log10(M_x),
+    alpha is assumed to be given directly.
     For the profile parameters, f_gal is assumed to be given as log10(f_gal),
     while gamma is assumed to be given directly.
 
@@ -211,82 +253,21 @@ def lnprior_flat(fit_params, param_lims, hod_type=1, fit_f_gal=False,
     """
 
     # First, figure out what are the contents of fit_params
-    # and of param_lims
     n_dim_hod = ndim_from_hod_type(hod_type)
     n_dim_prof = fit_f_gal + fit_gamma
     assert len(fit_params) == n_dim_hod + n_dim_prof
-    assert len(param_lims) == 2*len(fit_params)
 
-    # Get the part of the prior corresponding to the HOD parameters
-    hod_params = fit_params[:n_dim_hod]
-    hod_param_lims = param_lims[:2*n_dim_hod]
+    param_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+    assert len(param_list) == n_dim_hod + n_dim_prof
 
-    if hod_type == 1:
-        logMmin, logM1, alpha = hod_params
-        logMm_min, logMm_max, logM1_min, logM1_max, \
-            alpha_min, alpha_max = hod_param_lims
+    # And get the total ln(prior) as the sum of the ln(prior) for the individual
+    # parameters
+    lnprior_total = 0.0
 
-        if logMm_min < logMmin < logMm_max and \
-           logM1_min < logM1 < logM1_max and \
-           alpha_min < alpha < alpha_max:
-            lnprior_hod = 0.0
-        else:
-            lnprior_hod = -np.inf
+    for i,par in enumerate(param_list):
+        lnprior_total += prior_pdf_dict[par].logpdf(fit_params[i])
 
-    elif hod_type == 2:
-        logMmin, logM1, alpha, logsiglogM, logM0 = hod_params
-        logMm_min, logMm_max, logM1_min, logM1_max, \
-            alpha_min, alpha_max, logsiglogM_min, logsiglogM_max, \
-            logM0_min, logM0_max = hod_param_lims
-
-        if logMm_min < logMmin < logMm_max and \
-           logM1_min < logM1 < logM1_max and \
-           alpha_min < alpha < alpha_max and \
-           logsiglogM_min < logsiglogM < logsiglogM_max and \
-           logM0_min < logM0 < logM0_max:
-            lnprior_hod = 0.0
-        else:
-            lnprior_hod = -np.inf
-
-    elif hod_type == 3:
-        logMmin, logM1, alpha, logsiglogM = hod_params
-        logMm_min, logMm_max, logM1_min, logM1_max, \
-            alpha_min, alpha_max, \
-            logsiglogM_min, logsiglogM_max = hod_param_lims
-
-        if logMm_min < logMmin < logMm_max and \
-           logM1_min < logM1 < logM1_max and \
-           alpha_min < alpha < alpha_max and \
-           logsiglogM_min < logsiglogM < logsiglogM_max:
-            lnprior_hod = 0.0
-        else:
-            lnprior_hod = -np.inf
-
-    else:
-        raise ValueError("The HOD parameterisation with"
-                         "hod_type = %d has not yet been implemented!"
-                         % hod_type)
-
-    # Get the part of the prior corresponding to the ModNFW profile parameters
-    lnprior_prof = 0.0
-    if fit_f_gal:
-        log_fgal = fit_params[n_dim_hod]
-        log_fgal_min, log_fgal_max = param_lims[2*n_dim_hod:(2*n_dim_hod)+2]
-        if log_fgal_min < log_fgal < log_fgal_max:
-            lnprior_prof += 0.0
-        else:
-            lnprior_prof += -np.inf
-
-    if fit_gamma:
-        gamma = fit_params[-1]
-        gamma_min, gamma_max = param_lims[-2:]
-        if gamma_min < gamma < gamma_max:
-            lnprior_prof += 0.0
-        else:
-            lnprior_prof += -np.inf
-
-    # Return the total prior
-    return lnprior_hod + lnprior_prof
+    return lnprior_total
 
 
 def lnlikelihood_fullmatrix(fit_params, rp, wp, wp_icov, clustobj=None,
@@ -345,7 +326,7 @@ def lnlikelihood_fullmatrix(fit_params, rp, wp, wp_icov, clustobj=None,
         chi2_density)
 
 
-def lnposterior(fit_params, rp, wp, wp_icov, param_lims, clustobj=None,
+def lnposterior(fit_params, rp, wp, wp_icov, prior_pdf_dict, clustobj=None,
                 hod_type=1, fit_f_gal=False, fit_gamma=False,
                 nr=100, pimin=0.001, pimax=400, npi=100,
                 fit_density=0, data_dens=None, data_dens_err=None,
@@ -355,15 +336,15 @@ def lnposterior(fit_params, rp, wp, wp_icov, param_lims, clustobj=None,
     parameters given the wp(rp) data.
 
     Assumptions made in this implementation:
-    * Prior is flat on the parameters (in log(M_x) for mass-like parameters).
+    * Prior is defined by the `prior_definitions` parameter, as used in the
+      `lnprior_allpars` and `lnprior_singlepar` functions.
     * Compute the likelihood using the full covariance matrix of the data,
       assuming multi-dimensional Gaussian errors.
     * We allow the use of different HOD parameterisations using the 'hod_type'
       parameter (same options as in HODModel class).
     """
 
-    # lp = lnprior_flat(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
-    lp = lnprior_gauss(fit_params, param_lims, hod_type, fit_f_gal, fit_gamma)
+    lp = lnprior_from_pdf(fit_params, prior_pdf_dict, hod_type, fit_f_gal, fit_gamma)
 
     if not np.isfinite(lp):
         return -np.inf
@@ -411,7 +392,7 @@ def select_scales(rpmin, rpmax, rp, wp, wperr=None, wp_covmatrix=None):
     return rp, wp, wperr, wp_covmatrix
 
 
-def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
+def find_best_fit(fit_params_start, rp, wp, wp_icov, prior_pdf_dict,
                   return_model=False, minim_method='Powell',
                   minim_options={'xtol': 1e-12, 'ftol': 1e-12, 'maxiter': None},
                   clustobj=None,
@@ -445,7 +426,7 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
     # Now, do the actual minimization calling the function
     maxpost_result = \
         optimize.minimize(fun=neglogposterior, x0=fit_params_start,
-                          args=(rp, wp, wp_icov, param_lims, clustobj,
+                          args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
                                 hod_type, fit_f_gal, fit_gamma,
                                 nr, pimin, pimax, npi, fit_density,
                                 data_dens, data_dens_err, data_logdens,
@@ -498,20 +479,33 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, param_lims,
     else:
         return fit_params_best, minim_result_message
 
+def sample_from_prior(nsamples, prior_pdf_dict, hod_type, fit_f_gal, fit_gamma):
+    """
+    Get a set of random points in parameter space distributed according to
+    the prior PDFs of the parameters.
+    """
+    param_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+    n_params = len(param_list)
+
+    out_samples = np.empty((nsamples, n_params))
+    for i,par in enumerate(param_list):
+        out_samples[:, i] = prior_pdf_dict[par].rvs(nsamples)
+
+    return out_samples
 
 def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
-                                 param_lims=[-1, 1, -1, 1, -1, 1],
+                                 prior_pdf_dict=None, hod_type=1,
+                                 fit_f_gal=False, fit_gamma=False,
                                  central_position=[0, 0, 0],
                                  ball_size=[0.1, 0.1, 0.1]):
     """
     Function to get the initial positions of walkers in parameter space.
-    I implement (for now?) two different recipes, to be chosen by parameter
+    I implement two different recipes, to be chosen by parameter
     'init_type':
 
-    - init_type=0: distribute initial points uniformly inside parameter limits
-                   (nothing fancy, so basically a flat prior on the parameters
-                   considered)
-                   parameter limits given by 'param_lims'
+    - init_type=0: distribute initial points following the prior distribution
+                   of the parameters (either uniform or gaussian).
+                   The priors are given by the `prior_pdf_dict`
     - init_type=1: distribute initial points in a Gaussian 'ball' (ellipsoid?)
                    around a central point in parameter space (typically,
                    close to the best-fit solution).
@@ -522,21 +516,10 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
     """
 
     if init_type == 0:
-        assert len(param_lims) == n_dimensions*2
+        positions = sample_from_prior(n_walkers, prior_pdf_dict,
+                                      hod_type, fit_f_gal, fit_gamma)
 
-        # First create random array of numbers between 0 and 1
-        # with the desired shape
-        positions = np.random.rand(n_walkers, n_dimensions)
-
-        # And now, scale each of the dimensions to the desired interval
-        for i in range(n_dimensions):
-
-            # param_lims will follow this convention, as in other functions
-            # here we just make it general, for any number of parameters
-            d_min = param_lims[2*i]
-            d_max = param_lims[2*i + 1]
-            assert d_max > d_min
-            positions[:, i] = (d_max - d_min)*positions[:, i] + d_min
+        assert positions.shape == (n_walkers, n_dimensions)
 
     elif init_type == 1:
         # TODO: use function for this provided in recent versions of emcee
@@ -557,7 +540,7 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
     return positions
 
 
-def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
+def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
              fit_f_gal=False, fit_gamma=False,
              nr=100, pimin=0.001, pimax=400, npi=100,
              init_type=0, cent_pos=None, ball_size=None,
@@ -626,7 +609,8 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     initial_positions = \
         get_initial_walker_positions(n_dimensions=n_dimensions,
                                      n_walkers=n_walkers, init_type=init_type,
-                                     param_lims=param_lims,
+                                     prior_pdf_dict=prior_pdf_dict,
+                                     fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                                      central_position=cent_pos,
                                      ball_size=ball_size)
 
@@ -634,7 +618,7 @@ def run_mcmc(rp, wp, wp_icov, param_lims, clustobj=None, hod_type=1,
     sampler = \
         emcee.EnsembleSampler(nwalkers=n_walkers, dim=n_dimensions,
                               lnpostfn=lnposterior, threads=n_threads,
-                              args=(rp, wp, wp_icov, param_lims, clustobj,
+                              args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
                                     hod_type, fit_f_gal, fit_gamma,
                                     nr, pimin, pimax, npi,
                                     fit_density, data_dens, data_dens_err,
@@ -971,6 +955,30 @@ def diagnose_plot_chain(chain_file="chain.default",
     return 0
 
 
+def read_prior_config(param_list, config, section='HODModel'):
+    """
+    Function to read in the configuration related to
+    the definition of the prior for a given list of parameters.
+    Returns a dictionary in the format needed by `build_prior_allpars`
+    """
+
+    prior_definitions = {}
+    for par in param_list:
+        prior_definitions[par] = {}
+        prior_type = config.getint(section, par + "_prior")
+        if prior_type not in [0,1]:
+            raise ValueError("Valid values for the prior type are 0 (Uniform) or 1 (Gaussian)")
+        prior_definitions[par]['prior_type'] = prior_type
+        if prior_type ==  0:
+            prior_definitions[par]['min_par'] = config.getfloat(section, par + "_min")
+            prior_definitions[par]['max_par'] = config.getfloat(section, par + "_max")
+        elif prior_type == 1:
+            prior_definitions[par]['mean_par'] = config.getfloat(section, par + "_mean")
+            prior_definitions[par]['std_par'] = config.getfloat(section, par + "_std")
+
+    return prior_definitions
+
+
 def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     """
     Function to do the full process to fit a HOD model to wp data. It will
@@ -1056,11 +1064,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         alpha_init = config.getfloat('HODModel', 'alpha_init')
         hod_param_init = [logMmin_init, logM1_init, alpha_init]
 
-        logMmin_lims = list(map(float,
-                           config.get('HODModel', 'logMmin_limits').split()))
-        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
-        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
-        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims
+        hod_param_list = ["logMmin", "logM1", "alpha"]
 
     elif hod_type == 2:
         n_dim_hod_model = 5
@@ -1074,17 +1078,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init, logM0_init]
 
-        logMmin_lims = list(map(float,
-                           config.get('HODModel', 'logMmin_limits').split()))
-        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
-        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
+        hod_param_list = ["logMmin", "logM1", "alpha", "logsiglogM", "logM0"]
 
-        logSiglogM_lims = list(map(float,
-                              config.get('HODModel', 'logSiglogM_limits').split()))
-        logM0_lims = list(map(float, config.get('HODModel', 'logM0_limits').split()))
-
-        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims +\
-            logSiglogM_lims + logM0_lims
 
     elif hod_type == 3:
         n_dim_hod_model = 4
@@ -1097,48 +1092,53 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init]
 
-        logMmin_lims = list(map(float,
-                           config.get('HODModel', 'logMmin_limits').split()))
-        logM1_lims = list(map(float, config.get('HODModel', 'logM1_limits').split()))
-        alpha_lims = list(map(float, config.get('HODModel', 'alpha_limits').split()))
+        hod_param_list = ["logMmin", "logM1", "alpha", "logsiglogM"]
 
-        logSiglogM_lims = list(map(float,
-                              config.get('HODModel', 'logSiglogM_limits').split()))
-
-        hod_param_lims = logMmin_lims + logM1_lims + alpha_lims + \
-            logSiglogM_lims
 
     else:
         raise ValueError("Allowed values of HOD_type are 1, 2 or 3")
+
+    # Read in the definitions of the priors for the HOD parameters
+    hod_prior_definitions = read_prior_config(param_list=hod_param_list,
+                                              config=config,
+                                              section='HODModel')
+
+
 
     # Read in the parameters defining the possible additional fit to the
     # profile parameters
     n_dim_prof_model = 0
     prof_param_init = []
-    prof_param_lims = []
+    prof_param_list = []
 
     fit_f_gal = config.getboolean('ModNFWModel', 'fit_f_gal')
     if fit_f_gal:
         n_dim_prof_model += 1
         log_fgal_init = config.getfloat('ModNFWModel', 'log_fgal_init')
-        log_fgal_lims = list(map(float,
-                            config.get('ModNFWModel', 'log_fgal_limits').split()))
         prof_param_init += [log_fgal_init]
-        prof_param_lims += log_fgal_lims
+        prof_param_list += ["log_fgal"]
 
     fit_gamma = config.getboolean('ModNFWModel', 'fit_gamma')
     if fit_gamma:
         n_dim_prof_model += 1
         gamma_init = config.getfloat('ModNFWModel', 'gamma_init')
-        gamma_lims = list(map(float,
-                         config.get('ModNFWModel', 'gamma_limits').split()))
         prof_param_init += [gamma_init]
-        prof_param_lims += gamma_lims
+        prof_param_list += ["gamma"]
+
+    # Read in the definitions of the priors for the HOD parameters
+    prof_prior_definitions = read_prior_config(param_list=prof_param_list,
+                                               config=config,
+                                               section='ModNFWModel')
 
     # Put together all the parameters that we will try to fit
     n_dim_model = n_dim_hod_model + n_dim_prof_model
     fit_param_init = hod_param_init + prof_param_init
-    fit_param_lims = hod_param_lims + prof_param_lims
+
+    # Get the priors for all parameters
+    prior_definitions = {**hod_prior_definitions, **prof_prior_definitions}
+    prior_pdf_dict = build_prior_allpars(prior_definitions, hod_type,
+                                         fit_f_gal, fit_gamma)
+
 
     # Read in parameters related to the Cosmology to be used, and to
     # details of how to do the calculations
@@ -1255,7 +1255,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         }
         bestfit_params, bestfit_derived, bestfit_message =\
             find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
-                          wp_icov=icovmat_sel, param_lims=fit_param_lims,
+                          wp_icov=icovmat_sel,
+                          prior_pdf_dict=prior_pdf_dict,
                           return_model=True,
                           minim_method=best_fit_minim_method,
                           minim_options=best_fit_minim_options,
@@ -1328,7 +1329,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     # Now, actually run the MCMC
     run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
-             param_lims=fit_param_lims, clustobj=hod_clust, hod_type=hod_type,
+             prior_pdf_dict=prior_pdf_dict, clustobj=hod_clust, hod_type=hod_type,
              fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
              nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
              npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
