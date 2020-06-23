@@ -635,7 +635,7 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
         # chain file
         for result in sampler.sample(initial_positions,
                                      iterations=n_steps_per_walker,
-                                     store=False):
+                                     store=False, progress=True):
             position = result.coords
             lnprob = result.log_prob
 
