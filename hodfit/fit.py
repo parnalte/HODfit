@@ -616,8 +616,8 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
 
     # Now, define the emcee sampler
     sampler = \
-        emcee.EnsembleSampler(nwalkers=n_walkers, dim=n_dimensions,
-                              lnpostfn=lnposterior, threads=n_threads,
+        emcee.EnsembleSampler(nwalkers=n_walkers, ndim=n_dimensions,
+                              log_prob_fn=lnposterior, threads=n_threads,
                               args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
                                     hod_type, fit_f_gal, fit_gamma,
                                     nr, pimin, pimax, npi,
@@ -628,9 +628,9 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
     # chain file
     for result in sampler.sample(initial_positions,
                                  iterations=n_steps_per_walker,
-                                 storechain=False):
-        position = result[0]
-        lnprob = result[1]
+                                 store=False):
+        position = result.coords
+        lnprob = result.log_prob
 
         with open(out_chain_file, "a") as f:
             for k in range(position.shape[0]):
