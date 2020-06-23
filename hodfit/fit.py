@@ -18,6 +18,7 @@ import os
 import time
 import sys
 from configparser import ConfigParser
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
@@ -560,6 +561,9 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
           convergence (acceptance fraction, acorr, etc.)
     """
 
+    # Avoid possible conflicts between emcee's parallelisation and numpy's OMP
+    os.environ["OMP_NUM_THREADS"] = "1"
+
     # First, check if file already exists (and is not emtpy!)
     # We do not want to overwrite anything
     if os.path.exists(out_chain_file) and\
@@ -614,30 +618,33 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
                                      central_position=cent_pos,
                                      ball_size=ball_size)
 
-    # Now, define the emcee sampler
-    sampler = \
-        emcee.EnsembleSampler(nwalkers=n_walkers, ndim=n_dimensions,
-                              log_prob_fn=lnposterior, threads=n_threads,
-                              args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
-                                    hod_type, fit_f_gal, fit_gamma,
-                                    nr, pimin, pimax, npi,
-                                    fit_density, data_dens, data_dens_err,
-                                    data_logdens, data_logdens_err))
+    # Start parallelisation for emcee's sampler
+    with Pool(n_threads) as pool:
 
-    # And iterate the sampler, writing each of the samples to the output
-    # chain file
-    for result in sampler.sample(initial_positions,
-                                 iterations=n_steps_per_walker,
-                                 store=False):
-        position = result.coords
-        lnprob = result.log_prob
+        # Now, define the emcee sampler
+        sampler = \
+            emcee.EnsembleSampler(nwalkers=n_walkers, ndim=n_dimensions,
+                                  log_prob_fn=lnposterior, pool=pool,
+                                  args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
+                                        hod_type, fit_f_gal, fit_gamma,
+                                        nr, pimin, pimax, npi,
+                                        fit_density, data_dens, data_dens_err,
+                                        data_logdens, data_logdens_err))
 
-        with open(out_chain_file, "a") as f:
-            for k in range(position.shape[0]):
-                f.write("%d  %s  %g\n" %
-                        (k, np.array_str(position[k],
-                                         max_line_width=1000)[1:-1],
-                         lnprob[k]))
+        # And iterate the sampler, writing each of the samples to the output
+        # chain file
+        for result in sampler.sample(initial_positions,
+                                     iterations=n_steps_per_walker,
+                                     store=False):
+            position = result.coords
+            lnprob = result.log_prob
+
+            with open(out_chain_file, "a") as f:
+                for k in range(position.shape[0]):
+                    f.write("%d  %s  %g\n" %
+                            (k, np.array_str(position[k],
+                                             max_line_width=1000)[1:-1],
+                             lnprob[k]))
 
     # If we get this far, we are finished!
     print("MCMC samples in run written to file ", out_chain_file)
