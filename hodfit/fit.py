@@ -552,6 +552,9 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
     Function to run the basic MCMC from emcee given the data, and the
     parameters defining the model.
 
+    Returns the mean acceptance fraction of the run, and the mean Autocorrelation
+    time for all the parameters.
+
     TODO: description of input parameters and options
 
     TODO: implement option to return also derived quantities for each sample
@@ -606,15 +609,28 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
 
         # And run the sampler for N steps. Points in the chain will be saved
         # to backend
-        result = sampler.run_mcmc(initial_positions,
-                                  nsteps=n_steps_per_walker,
-                                  store=True, progress=True)
+        for sample in sampler.sample(initial_positions,
+                                     iterations=n_steps_per_walker,
+                                     store=True, progress=True):
+
+            # Every 100 steps, show progress of convergence parameters
+            if sampler.iteration % 100:
+                continue
+
+            mean_acceptance_fraction = sampler.acceptance_fraction.mean()
+            mean_autocorr_time = sampler.get_autocorr_time(tol=0).mean()
+            print(f"Iteration no. {sampler.iteration}: "
+                  f"mean_acceptance={mean_acceptance_fraction:.5}; "
+                  f"mean_autocorr_time={mean_autocorr_time:.5}")
 
     # If we get this far, we are finished!
     print("MCMC samples in run saved to file ", out_chain_file)
-#    print(f"Acceptance fraction of run = {sampler.acceptance_fraction}")
+    final_acceptance = sampler.acceptance_fraction.mean()
+    final_autocorr_params = sampler.get_autocorr_time(tol=0)
+    print(f"Mean acceptance fraction of run = {final_acceptance:.5}")
+    print(f"Autocorrelation time of parameters: {final_autocorr_params}")
 
-    return 0
+    return final_acceptance, final_autocorr_params
 
 
 def read_chain_file(inchain_file="chain_default.h5"):
@@ -1311,7 +1327,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         raise ValueError("Allowed values of mcmc_init_type are 0 or 1")
 
     # Now, actually run the MCMC
-    run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
+    mean_accept, autocorr_times = \
+        run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
              prior_pdf_dict=prior_pdf_dict, clustobj=hod_clust, hod_type=hod_type,
              fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
              nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
@@ -1340,6 +1357,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     with open(f_results_out, 'a') as res_out:
         res_out.write("MCMC SAMPLING OF THE POSTERIOR:\n")
         res_out.write("Full sample chain written to file %s\n" % f_chain_out)
+        res_out.write(f"Mean acceptance fraction of chain = {mean_accept:.5}\n")
+        res_out.write(f"Autocorrelation times of the parameters: \n {autocorr_times}\n")
 
     with open(f_results_out, 'a') as res_out:
         print_conf_interval(ci_dictionary=mcmc_analysis_result,
