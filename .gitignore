@@ -14,6 +14,7 @@ test*chain.dat
 test*config.ini
 test*results.txt
 default*chain.dat
+default*chain.h5
 default*config.ini
 default*results.txt
 default.npz
