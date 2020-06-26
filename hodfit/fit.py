@@ -546,7 +546,7 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
              nr=100, pimin=0.001, pimax=400, npi=100,
              init_type=0, cent_pos=None, ball_size=None,
              n_walkers=100, n_steps_per_walker=100, n_threads=1,
-             out_chain_file="chain.default", fit_density=0, data_dens=None,
+             out_chain_file="chain_default.h5", fit_density=0, data_dens=None,
              data_dens_err=None, data_logdens=None, data_logdens_err=None):
     """
     Function to run the basic MCMC from emcee given the data, and the
@@ -572,42 +572,14 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
         raise RuntimeError("File " + out_chain_file + " already exists and is "
                            "not empty. I will not overwrite anything!")
 
-    # Depending on HOD type considered, get number of dimensions,
-    # and header for the output file
-    if hod_type == 1:
-        n_dim_hod = 3
-        header_hod = "walker logMmin logM1 alpha "
+    # Depending on HOD type considered, and profile parameters to fit,
+    # get number of dimensions
+    param_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+    n_dimensions = len(param_list)
 
-    elif hod_type == 2:
-        n_dim_hod = 5
-        header_hod = "walker logMmin logM1 alpha logsiglogM logM0 "
-
-    elif hod_type == 3:
-        n_dim_hod = 4
-        header_hod = "walker logMmin logM1 alpha logsiglogM "
-    else:
-        raise ValueError("The HOD parameterisation with"
-                         "hod_type = %d has not yet been implemented!"
-                         % hod_type)
-
-    # Depending on profile parameters to fit, get additional no. of dimensions
-    # and additional columns in header
-    n_dim_prof = 0
-    header_prof = ""
-    if fit_f_gal:
-        n_dim_prof += 1
-        header_prof += "log_fgal "
-    if fit_gamma:
-        n_dim_prof += 1
-        header_prof += "gamma "
-
-    n_dimensions = n_dim_hod + n_dim_prof
-    header = header_hod + header_prof + "log_posterior\n"
-
-    # Write header to output file (so we make sure it exists later!)
-    f = open(out_chain_file, 'w')
-    f.write(header)
-    f.close()
+    # Define 'backend' for the output chain file
+    backend = emcee.backends.HDFBackend(out_chain_file)
+    backend.reset(n_walkers, n_dimensions)
 
     # Define initial positions for walkers
     initial_positions = \
@@ -625,34 +597,27 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
         sampler = \
             emcee.EnsembleSampler(nwalkers=n_walkers, ndim=n_dimensions,
                                   log_prob_fn=lnposterior, pool=pool,
+                                  backend=backend,
                                   args=(rp, wp, wp_icov, prior_pdf_dict, clustobj,
                                         hod_type, fit_f_gal, fit_gamma,
                                         nr, pimin, pimax, npi,
                                         fit_density, data_dens, data_dens_err,
                                         data_logdens, data_logdens_err))
 
-        # And iterate the sampler, writing each of the samples to the output
-        # chain file
-        for result in sampler.sample(initial_positions,
-                                     iterations=n_steps_per_walker,
-                                     store=False, progress=True):
-            position = result.coords
-            lnprob = result.log_prob
-
-            with open(out_chain_file, "a") as f:
-                for k in range(position.shape[0]):
-                    f.write("%d  %s  %g\n" %
-                            (k, np.array_str(position[k],
-                                             max_line_width=1000)[1:-1],
-                             lnprob[k]))
+        # And run the sampler for N steps. Points in the chain will be saved
+        # to backend
+        result = sampler.run_mcmc(initial_positions,
+                                  nsteps=n_steps_per_walker,
+                                  store=True, progress=True)
 
     # If we get this far, we are finished!
-    print("MCMC samples in run written to file ", out_chain_file)
+    print("MCMC samples in run saved to file ", out_chain_file)
+#    print(f"Acceptance fraction of run = {sampler.acceptance_fraction}")
 
     return 0
 
 
-def read_chain_file(inchain_file="chain.default"):
+def read_chain_file(inchain_file="chain_default.h5"):
     """
     Reads in data from a 'chains file' with the same format as written out
     by function'run_mcmc'.
@@ -691,7 +656,8 @@ def read_chain_file(inchain_file="chain.default"):
     return df, n_walkers, n_iterations
 
 
-def analyse_mcmc(chain_file="chain.default", n_burn=50,
+def analyse_mcmc(chain_file="chain_default.h5", hod_type=1, fit_f_gal=False,
+                 fit_gamma=False, n_burn=50,
                  corner_plot_file="corner.default.png",
                  perc_intervals=[68.3], maxlike_values=None,
                  plot_quantiles=True, Verbose=False):
@@ -709,7 +675,7 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
     By default, these correspond to 1-sigma interval, but several intervals
     can be obtained at once.
     These are returned in a dictionary that contains a list of values for each
-    of the parameter in the chain.
+    of the parameters in the chain.
 
     TODO: better description of input parameters and options
 
@@ -719,14 +685,16 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
           more appropriate names including LaTeX for parameters)
     """
 
-    # First of all, read data from file
-    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+    # First of all, define the backend to read from file
+    reader = emcee.backends.HDFBackend(chain_file)
 
-    # Now, remove the burn-in period, and drop the 'walker' column we do not
-    # need anymore
-    df_chain = df_chain[n_walkers*n_burn:]
-    df_chain.drop('walker', axis=1, inplace=True)
-    df_chain.drop('log_posterior', axis=1, inplace=True)
+    # Read in the chain, discarding the burn-in iterations
+    chain = reader.get_chain(discard=n_burn, flat=True)
+    n_samples, n_params = chain.shape
+
+    # Get corresponding names of parameters
+    parameter_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+    assert len(parameter_list) == n_params
 
     # First, define the 'partial percentiles' corresponding to the intervals
     # we have defined
@@ -752,9 +720,10 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
     # We do the "fancy" plot (1-sigma and 2-sigma contours, etc.) as we assume
     # a recent version of the corner package
     # of triangle module >=0.2.0
-    fig = corner.corner(df_chain, truths=maxlike_values,
+    fig = corner.corner(chain, truths=maxlike_values,
                         quantiles=quant_plot, verbose=False,
                         fill_contours=True, show_titles=True,
+                        labels=parameter_list,
                         plot_datapoints=True, levels=perc_intervals/100.)
 
     fig.savefig(corner_plot_file)
@@ -763,17 +732,17 @@ def analyse_mcmc(chain_file="chain.default", n_burn=50,
     # confidence intervals for each of the parameters
     dict_output = {}
 
-    for param_name in df_chain.columns:
+    for i, parameter in enumerate(parameter_list):
 
         # First, compute the median
-        med_value = np.median(df_chain[param_name])
-        dict_output[param_name] = [med_value]
+        med_value = np.median(chain[:,i])
+        dict_output[parameter] = [med_value]
 
         # Now, the lower and upper extents for each of the confidence intervals
         for p in partial_percents:
-            extrema = np.percentile(df_chain[param_name], p)
+            extrema = np.percentile(chain[:, i], p)
             ci_limits = [med_value - extrema[0], extrema[1] - med_value]
-            dict_output[param_name].append(ci_limits)
+            dict_output[parameter].append(ci_limits)
 
     # In the Verbose case, also print out the output
     if Verbose:
@@ -819,9 +788,9 @@ def print_conf_interval(ci_dictionary, perc_intervals=None,
 
 
 def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
-                      chain_file="chain.default",
+                      chain_file="chain_default.h5",
                       plot_file="compplot.default.png",
-                      n_burn=50, maxlike_values=None, n_params=None,
+                      n_burn=50, maxlike_values=None,
                       rp_ext=None, wp_ext=None, wperr_ext=None,
                       clustobj=None, hod_type=1, fit_f_gal=False,
                       fit_gamma=False, nr=100, pimin=0.001,
@@ -833,16 +802,12 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
     TODO: explain in detail the input parameters and options
     """
 
-    # First, read in the chain samples from the file
-    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+    # First of all, define the backend to read from file
+    reader = emcee.backends.HDFBackend(chain_file)
 
-    # Remove burn-in period and drop the 'walker' column
-    df_chain = df_chain[n_walkers*n_burn:]
-    df_chain.drop('walker', axis=1, inplace=True)
-    df_chain.drop('log_posterior', axis=1, inplace=True)
-
-    # Define total number of samples in the 'clean' chain
-    n_samples_total = n_walkers*(n_iter - n_burn)
+    # Read in the chain, discarding the burn-in iterations
+    chain = reader.get_chain(discard=n_burn, flat=True)
+    n_samples, n_params = chain.shape
 
     # Decide which rp values will be used for the models (if there is
     # 'extended' data, extend the model also!)
@@ -851,19 +816,11 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
     else:
         rp_models = rp_ext
 
-    # Decide on number of parameters to use:
-    # By default all parameters in chain, but we can set it to a different
-    # number, in case the chain also includes derived parameters
-    if n_params is None:
-        n_params = len(df_chain.columns)
-
     # Create figure & axis so that we can start plotting
     fig, ax = plt.subplots()
 
     # First, plot the models sampled from the chain
-    for params in \
-        df_chain.values[np.random.randint(n_samples_total,
-                                          size=n_samples_plot), :n_params]:
+    for params in chain[np.random.randint(n_samples, size=n_samples_plot),:]:
 
         ax.plot(rp_models,
                 wp_hod(rp=rp_models, fit_params=params, clustobj=clustobj,
@@ -904,38 +861,39 @@ def compare_mcmc_data(rp, wp, wperr, n_samples_plot=50,
     return 0
 
 
-def diagnose_plot_chain(chain_file="chain.default",
+def diagnose_plot_chain(chain_file="chain_default.h5",
+                        hod_type=1, fit_f_gal=False, fit_gamma=False,
                         diag_plot_prefix="diagnosechain",
                         n_burn=None, maxlike_values=None):
     """
     Create a 'diagnose plot' showing the evolution of the chain for all
-    the walkers for each of the parameters. This is useful, e.g. to decide
-    on the number of burn-in steps we want to cut out for later analysis.
+    the walkers for each of the parameters (and the log-posterior).
+    This is useful, e.g. to decide on the number of burn-in steps
+    we want to cut out for later analysis.
 
     TODO: add option to use personalised labels in the plot (e.g. to use
           more appropriate names including LaTeX for parameters)
     """
 
-    # First, read in the chain samples from the file
-    df_chain, n_walkers, n_iter = read_chain_file(chain_file)
+    # First of all, define the backend to read from file
+    reader = emcee.backends.HDFBackend(chain_file)
 
-    # Group by walker, as we want to plot the evolution of each walker
-    # individually
-    df_chain_group = df_chain.groupby('walker')
+    # Read in the full chain, without flattening
+    chain = reader.get_chain()
+    n_iter, n_walkers, n_params = chain.shape
 
-    # Get list of parameters to consider
-    param_list = df_chain.columns
-    param_list = param_list.drop('walker')
+    # Get corresponding names of parameters
+    param_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+    assert len(param_list) == n_params
 
-    # And now, do the plot for each of the parameters in the chain
+    # Do the plot for each of the parameters in the chain
     for j, parameter in enumerate(param_list):
         outfile = diag_plot_prefix + "." + parameter + ".png"
 
         fig, ax = plt.subplots()
 
         for i in range(n_walkers):
-            walker = df_chain_group.get_group(i)
-            ax.plot(range(n_iter), walker[parameter], 'k-', lw=0.5, alpha=0.2)
+            ax.plot(range(n_iter), chain[:,i,j], 'k-', lw=0.5, alpha=0.2)
         ax.set_xlabel("Step")
         ax.set_ylabel(parameter)
 
@@ -958,6 +916,24 @@ def diagnose_plot_chain(chain_file="chain.default",
         ax.grid(True)
 
         fig.savefig(outfile)
+
+    # And finally, do also the plot for the log-posterior
+    log_prob_samples = reader.get_log_prob()
+    assert log_prob_samples.shape == (n_iter, n_walkers)
+
+    outfile = diag_plot_prefix + ".log_posterior.png"
+    fig, ax = plt.subplots()
+    for i in range(n_walkers):
+        ax.plot(range(n_iter), log_prob_samples[:,i], 'k-', lw=0.5, alpha=0.2)
+    ax.set_xlabel("Step")
+    ax.set_ylabel(parameter)
+    # change Y axis limits to not beeing too affected by initial steps
+    max_lp = log_prob_samples.max()
+    ax.set_ylim(max_lp - 20, max_lp + 2)
+    if n_burn is not None:
+        ax.axvline(n_burn, lw=2, ls='dashed', color='red')
+    ax.grid(True)
+    fig.savefig(outfile)
 
     return 0
 
@@ -1003,7 +979,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Define files for different outputs
     f_config_out = output_prefix + "_config.ini"    # For backup of config
     f_results_out = output_prefix + "_results.txt"  # For summary of results and log of run
-    f_chain_out = output_prefix + "_chain.dat"   # For MCMC chain
+    f_chain_out = output_prefix + "_chain.h5"   # For MCMC chain (HDF5 file)
     f_corner_out = output_prefix + "_corner.png"  # For output corner plot
     f_diag_prefix = output_prefix + "_diagplot"   # Prefix for 'diagnose' plots
     f_compplot_out = output_prefix + "_comparedata.png"  # For plot comparing to data
@@ -1355,7 +1331,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                      config.get('MCMCanalysis', 'conf_intervals').split()))
 
     mcmc_analysis_result = analyse_mcmc(
-        chain_file=f_chain_out, n_burn=n_burn_in,
+        chain_file=f_chain_out, hod_type=hod_type,
+        fit_f_gal=fit_f_gal, fit_gamma=fit_gamma, n_burn=n_burn_in,
         corner_plot_file=f_corner_out, perc_intervals=ci_percent,
         maxlike_values=bestfit_params)
 
@@ -1383,7 +1360,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                       nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
                       npi=wpcalc_npi)
 
-    diagnose_plot_chain(chain_file=f_chain_out, diag_plot_prefix=f_diag_prefix,
+    diagnose_plot_chain(chain_file=f_chain_out, hod_type=hod_type,
+                        fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
+                        diag_plot_prefix=f_diag_prefix,
                         n_burn=n_burn_in, maxlike_values=bestfit_params)
 
     # Write final blob to results file
