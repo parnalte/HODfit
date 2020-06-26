@@ -614,6 +614,7 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
         get_initial_walker_positions(n_dimensions=n_dimensions,
                                      n_walkers=n_walkers, init_type=init_type,
                                      prior_pdf_dict=prior_pdf_dict,
+                                     hod_type=hod_type,
                                      fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
                                      central_position=cent_pos,
                                      ball_size=ball_size)
