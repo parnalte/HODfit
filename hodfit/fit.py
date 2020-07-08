@@ -541,7 +541,8 @@ def get_initial_walker_positions(n_dimensions=3, n_walkers=100, init_type=0,
     return positions
 
 
-def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
+def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, restart_chain=False,
+             clustobj=None, hod_type=1,
              fit_f_gal=False, fit_gamma=False,
              nr=100, pimin=0.001, pimax=400, npi=100,
              init_type=0, cent_pos=None, ball_size=None,
@@ -567,31 +568,46 @@ def run_mcmc(rp, wp, wp_icov, prior_pdf_dict, clustobj=None, hod_type=1,
     # Avoid possible conflicts between emcee's parallelisation and numpy's OMP
     os.environ["OMP_NUM_THREADS"] = "1"
 
-    # First, check if file already exists (and is not emtpy!)
-    # We do not want to overwrite anything
-    if os.path.exists(out_chain_file) and\
-            (os.stat(out_chain_file).st_size > 0):
-
-        raise RuntimeError("File " + out_chain_file + " already exists and is "
-                           "not empty. I will not overwrite anything!")
-
     # Depending on HOD type considered, and profile parameters to fit,
     # get number of dimensions
     param_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
     n_dimensions = len(param_list)
 
-    # Define 'backend' for the output chain file
-    backend = emcee.backends.HDFBackend(out_chain_file)
-    backend.reset(n_walkers, n_dimensions)
+    # If restarting from a previous chain, read it in! (and no need for initial positions)
+    if restart_chain:
+        backend = emcee.backends.HDFBackend(out_chain_file)
+        # Check things make sense
+        assert backend.shape == (n_walkers, n_dimensions)
+        start_size = backend.iteration
 
-    # Define initial positions for walkers
-    initial_positions = \
-        get_initial_walker_positions(n_dimensions=n_dimensions,
-                                     n_walkers=n_walkers, init_type=init_type,
-                                     prior_pdf_dict=prior_pdf_dict,
-                                     fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
-                                     central_position=cent_pos,
-                                     ball_size=ball_size)
+        print(f"Read in previous MCMC run from file {out_chain_file}")
+        print(f"Previous run contains {start_size} iterations for "
+              f"{n_walkers} walkers in {n_dimensions} dimensions.")
+
+
+        initial_positions = backend.get_last_sample()
+
+    # If starting from scratch, check that output file does not exist
+    # (we do not want to overwrite anything)
+    # and define initial positions for walkers
+    else:
+
+        if os.path.exists(out_chain_file) and\
+                (os.stat(out_chain_file).st_size > 0):
+
+                raise RuntimeError("File " + out_chain_file + " already exists and is "
+                                    "not empty. I will not overwrite anything!")
+
+        backend = emcee.backends.HDFBackend(out_chain_file)
+        backend.reset(n_walkers, n_dimensions)
+
+        initial_positions = \
+            get_initial_walker_positions(n_dimensions=n_dimensions,
+                                        n_walkers=n_walkers, init_type=init_type,
+                                        prior_pdf_dict=prior_pdf_dict,
+                                        fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
+                                        central_position=cent_pos,
+                                        ball_size=ball_size)
 
     # Start parallelisation for emcee's sampler
     with Pool(n_threads) as pool:
@@ -974,6 +990,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         res_out.write("This run started at: " + time.asctime() + "\n")
         res_out.write("-------------------------------------------\n")
 
+    # Decide wether we'll be continuing a previous MCMC run
+    restart_chain = config.getboolean('General', 'restart_chain')
+
     # Read in data, select the scales we are interested in, etc.
     infile_wp = config.get('Data', 'wpfile')
     rp, wp, wperr = np.loadtxt(infile_wp, usecols=range(3), unpack=True)
@@ -1290,7 +1309,8 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Now, actually run the MCMC
     mean_accept, autocorr_times = \
         run_mcmc(rp=rpsel, wp=wpsel, wp_icov=icovmat_sel,
-             prior_pdf_dict=prior_pdf_dict, clustobj=hod_clust, hod_type=hod_type,
+             prior_pdf_dict=prior_pdf_dict, restart_chain=restart_chain,
+             clustobj=hod_clust, hod_type=hod_type,
              fit_f_gal=fit_f_gal, fit_gamma=fit_gamma,
              nr=wpcalc_nr, pimin=wpcalc_pimin, pimax=wpcalc_pimax,
              npi=wpcalc_npi, init_type=mcmc_init_type, cent_pos=cpos,
@@ -1317,6 +1337,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     # Write results to 'results' file
     with open(f_results_out, 'a') as res_out:
         res_out.write("MCMC SAMPLING OF THE POSTERIOR:\n")
+        if restart_chain:
+            res_out.write("This run was the continuation of a previous one, "
+                          f"read in from {f_chain_out}.")
         res_out.write("Full sample chain written to file %s\n" % f_chain_out)
         res_out.write(f"Mean acceptance fraction of chain = {mean_accept:.5}\n")
         res_out.write(f"Autocorrelation times of the parameters: \n {autocorr_times}\n")
