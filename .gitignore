@@ -17,6 +17,7 @@ default*chain.dat
 default*chain.h5
 default*config.ini
 default*results.txt
+default*results.json
 default.npz
 /*.egg-info
 /dist/

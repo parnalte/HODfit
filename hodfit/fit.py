@@ -17,6 +17,7 @@ Some of these functions are taken/adapted from the emcee tutorials.
 import os
 import time
 import sys
+import json
 from configparser import ConfigParser
 from multiprocessing import Pool
 
@@ -977,18 +978,20 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     f_corner_out = output_prefix + "_corner.png"  # For output corner plot
     f_diag_prefix = output_prefix + "_diagplot"   # Prefix for 'diagnose' plots
     f_compplot_out = output_prefix + "_comparedata.png"  # For plot comparing to data
+    f_results_json = output_prefix + "_results.json"  # JSON summary output
 
     # Save a backup of the config file
     with open(f_config_out, 'w') as config_out:
         config.write(config_out)
 
     # Write initial basic info. to results file
+    start_time_str = time.asctime()
     with open(f_results_out, 'w') as res_out:
         res_out.write("Running the HODfit main function\n")
         res_out.write("Original configuration file: %s\n" % paramfile)
         res_out.write("Backup of the configuration saved to %s\n"
                       % f_config_out)
-        res_out.write("This run started at: " + time.asctime() + "\n")
+        res_out.write("This run started at: " + start_time_str + "\n")
         res_out.write("-------------------------------------------\n")
 
     # Decide wether we'll be continuing a previous MCMC run
@@ -1379,6 +1382,98 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                       "to files starting by %s\n" % f_diag_prefix)
         res_out.write("-------------------------------------------\n")
         res_out.write("This run finished at: " + time.asctime() + "\n")
+
+
+    # Prepare dictionary with results for JSON output
+    output_json_dict = {}
+    param_names_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
+
+    ## General parameters of the run
+    output_json_dict["config_file"] = paramfile
+    output_json_dict["working_directory"] = os.getcwd()
+    output_json_dict["run_starting_time"] = start_time_str
+    output_json_dict["outputs_prefix"] = output_prefix
+    output_json_dict["number_model_parameters"] = n_dim_model
+    output_json_dict["model_parameters"] = param_names_list
+    output_json_dict["redshift"] = redshift
+
+    ## Parameters about the data
+    data_json_dict = {}
+    data_json_dict["file_wp"] = infile_wp
+    data_json_dict["file_wpcovmat"] = infile_covmat
+    data_json_dict["use_full_covmat"] = use_full_matrix
+
+    npoints_wp = len(rpsel)
+    npoints_dens = bool(fit_density)
+    npoints_total = npoints_wp + npoints_dens
+    data_json_dict["wp_npoints"] = npoints_wp
+    data_json_dict["fit_datadens"] = npoints_dens
+    data_json_dict["total_npoints"] = npoints_total
+
+    output_json_dict["Data"] = data_json_dict
+
+    ## Parameters about the best-fit (if it was done!)
+    if do_best_fit_minimization:
+        bestfit_json_dict = {}
+
+        bestfit_json_dict["parameters"] = {}
+        for i,p in enumerate(param_names_list):
+            bestfit_json_dict["parameters"][p] = bestfit_params[i]
+
+        bestfit_json_dict["termination_message"] = bestfit_message
+        bestfit_json_dict["loglikelihood_max"] = -0.5*chi2_bestfit
+        bestfit_json_dict["n_degrees_freedom"] = ndof
+        bestfit_json_dict["chi2_reduced_max"] = chi2_bestfit/ndof
+        bestfit_json_dict["AIC_loglike"] = chi2_bestfit + (2*n_dim_model)
+        bestfit_json_dict["BIC_loglike"] = chi2_bestfit + (n_dim_model*np.log(npoints_total))
+
+        bestfit_json_dict["derived_parameters"] = {}
+        bestfit_json_dict["derived_parameters"]["galaxy_density"] = bestfit_derived[1]
+        bestfit_json_dict["derived_parameters"]["mean_halo_mass"] = bestfit_derived[2]
+        bestfit_json_dict["derived_parameters"]["mean_galaxy_bias"] = bestfit_derived[3]
+        bestfit_json_dict["derived_parameters"]["satellite_fraction"] = bestfit_derived[4]
+
+        output_json_dict["BestFit"] = bestfit_json_dict
+
+    ## Parameters about the MCMC chain
+    mcmc_json_dict = {}
+    mcmc_json_dict["n_walkers"] = n_walkers
+    mcmc_json_dict["n_iterations"] = n_iterations
+    mcmc_json_dict["n_burn_in"] = n_burn_in
+    mcmc_json_dict["mean_acceptance_fraction"] = mean_accept
+
+    mcmc_json_dict["autocorrelation_time_emcee"] = {}
+    for i,p in enumerate(param_names_list):
+        mcmc_json_dict["autocorrelation_time_emcee"][p] = autocorr_times[i]
+
+    mcmc_json_dict["median_parameters"] = {}
+    for i,p in enumerate(param_names_list):
+        mcmc_json_dict["median_parameters"][p] = mcmc_analysis_result[p][0]
+
+    mcmc_json_dict["confidence_intervals"] = []
+    for i,perc in enumerate(ci_percent):
+        interval_dict = {}
+        interval_dict["percent"] = perc
+        interval_dict["parameters"] = {}
+
+        for p in param_names_list:
+            pmin = mcmc_analysis_result[p][0] - mcmc_analysis_result[p][i+1][0]
+            pmax = mcmc_analysis_result[p][0] + mcmc_analysis_result[p][i+1][1]
+            interval_dict["parameters"][p] = [pmin, pmax]
+
+        mcmc_json_dict["confidence_intervals"].append(interval_dict)
+
+    output_json_dict["MCMC"] = mcmc_json_dict
+
+    # Everything done, now write to JSON file
+    with open(f_results_json, 'w') as fout:
+        json.dump(output_json_dict, fout, indent=4)
+
+
+
+
+
+
 
     return 0
 
