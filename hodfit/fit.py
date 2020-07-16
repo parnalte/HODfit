@@ -443,6 +443,7 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, prior_pdf_dict,
     # Get the best parameters values for output
     fit_params_best = maxpost_result['x']
     minim_result_message = maxpost_result['message']
+    max_logp = -maxpost_result['fun']
 
     # Now, if needed, get other results for this model
     if return_model:
@@ -474,12 +475,13 @@ def find_best_fit(fit_params_start, rp, wp, wp_icov, prior_pdf_dict,
             hodmodel.fraction_satellites_array(hod_instance=hod_best,
                                                halo_instance=clustobj.halomodel)
 
-        return fit_params_best, (wp_best, galdens_best,
-                                 meanhalomass_best, meangalbias_best,
-                                 fracsat_best), minim_result_message
+        return (fit_params_best, max_logp,
+                (wp_best, galdens_best, meanhalomass_best, meangalbias_best, fracsat_best),
+                minim_result_message
+                )
 
     else:
-        return fit_params_best, minim_result_message
+        return fit_params_best, max_logp, minim_result_message
 
 def sample_from_prior(nsamples, prior_pdf_dict, hod_type, fit_f_gal, fit_gamma):
     """
@@ -1239,7 +1241,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
             'ftol': config.getfloat('BestFitcalc', 'best_fit_minim_xtol'),
             'maxiter': config.getint('BestFitcalc', 'best_fit_minim_maxiter'),
         }
-        bestfit_params, bestfit_derived, bestfit_message =\
+        bestfit_params, bestfit_maxlogp, bestfit_derived, bestfit_message =\
             find_best_fit(fit_params_start=fit_param_init, rp=rpsel, wp=wpsel,
                           wp_icov=icovmat_sel,
                           prior_pdf_dict=prior_pdf_dict,
@@ -1276,6 +1278,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
             res_out.write("Best-fit calculation finished at: " + time.asctime() + "\n")
             res_out.write("Minimization termination message: " + bestfit_message + "\n")
             res_out.write("Best-fit parameters: " + str(bestfit_params) + "\n")
+            res_out.write(f"Maximum value of log-posterior: {bestfit_maxlogp}\n")
             res_out.write("Chi^2 = %.5g\n" % chi2_bestfit)
             res_out.write("Number of degrees of freedom, ndof = %d\n" % ndof)
             res_out.write("Chi^2/ndof = %.3g\n" % (chi2_bestfit/ndof))
@@ -1425,11 +1428,15 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
             bestfit_json_dict["parameters"][p] = bestfit_params[i]
 
         bestfit_json_dict["termination_message"] = bestfit_message
-        bestfit_json_dict["loglikelihood_max"] = -0.5*chi2_bestfit
+        bestfit_json_dict["loglikelihood_bestfit"] = -0.5*chi2_bestfit
         bestfit_json_dict["n_degrees_freedom"] = ndof
-        bestfit_json_dict["chi2_reduced_max"] = chi2_bestfit/ndof
+        bestfit_json_dict["chi2_reduced_bestfit"] = chi2_bestfit/ndof
         bestfit_json_dict["AIC_loglike"] = chi2_bestfit + (2*n_dim_model)
         bestfit_json_dict["BIC_loglike"] = chi2_bestfit + (n_dim_model*np.log(npoints_total))
+
+        bestfit_json_dict["logposterior_bestfit"] = bestfit_maxlogp
+        bestfit_json_dict["AIC_logposterior"] = -2*bestfit_maxlogp + (2*n_dim_model)
+        bestfit_json_dict["BIC_logposterior"] = -2*bestfit_maxlogp + (n_dim_model*np.log(npoints_total))
 
         bestfit_json_dict["derived_parameters"] = {}
         bestfit_json_dict["derived_parameters"]["galaxy_density"] = bestfit_derived[1]
