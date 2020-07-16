@@ -984,10 +984,13 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     with open(f_config_out, 'w') as config_out:
         config.write(config_out)
 
+    # Get sample name (for reference in results)
+    sample_name = config.get('General', 'sample_name')
+
     # Write initial basic info. to results file
     start_time_str = time.asctime()
     with open(f_results_out, 'w') as res_out:
-        res_out.write("Running the HODfit main function\n")
+        res_out.write(f"Running the HODfit main function for sample {sample_name}\n")
         res_out.write("Original configuration file: %s\n" % paramfile)
         res_out.write("Backup of the configuration saved to %s\n"
                       % f_config_out)
@@ -1389,6 +1392,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     param_names_list = get_list_of_params(hod_type, fit_f_gal, fit_gamma)
 
     ## General parameters of the run
+    output_json_dict["sample_name"] = sample_name
     output_json_dict["config_file"] = paramfile
     output_json_dict["working_directory"] = os.getcwd()
     output_json_dict["run_starting_time"] = start_time_str
