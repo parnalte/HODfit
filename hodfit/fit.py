@@ -55,6 +55,27 @@ def get_hod_from_params(hod_params, hod_type=1):
         new_hod = hodmodel.HODModel(hod_type=3, mass_min=10**log10Mmin,
                                     mass_1=10**log10M1, alpha=alpha,
                                     siglogM=10**log10siglogM)
+    elif hod_type == 4:
+        log10Mmin, log10M1, alpha = hod_params
+        new_hod = hodmodel.HODModel(hod_type=4, mass_min=10**log10Mmin,
+                                    mass_1=10**log10M1, alpha=alpha)
+    elif hod_type == 5:
+        log10Mmin, log10M1, alpha, log10siglogM, log10M0 = hod_params
+        new_hod = hodmodel.HODModel(hod_type=5, mass_min=10 ** log10Mmin,
+                                    mass_1=10 ** log10M1, alpha=alpha,
+                                    siglogM=10 ** log10siglogM,
+                                    mass_0=10 ** log10M0)
+    elif hod_type == 6:
+        log10Mmin, log10M1, alpha, log10siglogM = hod_params
+        new_hod = hodmodel.HODModel(hod_type=6, mass_min=10 ** log10Mmin,
+                                    mass_1=10 ** log10M1, alpha=alpha,
+                                    siglogM=10 ** log10siglogM)
+    elif hod_type == 7:
+        log10Mmin, log10M1, alpha = hod_params
+        new_hod = hodmodel.HODModel(hod_type=7, mass_min=10 ** log10Mmin,
+                                    mass_1=10 ** log10M1, alpha=alpha)
+
+
     else:
         raise ValueError("The HOD parameterisation with"
                          "hod_type = %d has not yet been implemented!"
@@ -67,19 +88,16 @@ def ndim_from_hod_type(hod_type=1):
     """
     Function to obtain the number of dimensions (parameters) for the HOD
     part of the fit, depending on the HOD type.
-    For the moment only hod_type=1 (Kravtsov), hod_type=2 (Zheng) and
-    hod_type=3 (Zheng - only 4 parameters) are
-    implemented.
     """
 
-    if hod_type == 1:
+    if hod_type in [1, 4, 7]:
         return 3
-    elif hod_type == 2:
+    elif hod_type in [2, 5]:
         return 5
-    elif hod_type == 3:
+    elif hod_type in [3, 6]:
         return 4
     else:
-        raise RuntimeError("Only implemented values of HOD_type are 1, 2 or 3")
+        raise RuntimeError("Only implemented values of HOD_type are 1-7")
 
 
 def wp_hod(rp, fit_params, clustobj=None, hod_type=1, fit_f_gal=False,
@@ -183,11 +201,11 @@ def get_list_of_params(hod_type, fit_f_gal, fit_gamma):
     """
 
     # First, figure out what are parameters that we need to consider from HOD
-    if hod_type == 1:
+    if hod_type in [1, 4, 7]:
         params_list = ['logMmin', 'logM1', 'alpha']
-    elif hod_type == 2:
+    elif hod_type in [2, 5]:
         params_list = ['logMmin', 'logM1', 'alpha', 'logsiglogM', 'logM0']
-    elif hod_type == 3:
+    elif hod_type in [3, 6]:
         params_list = ['logMmin', 'logM1', 'alpha', 'logsiglogM']
     else:
         raise ValueError(f"The HOD parameterisation with " +
@@ -1045,46 +1063,37 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     # Read in the parameters defining the HOD model to fit
     hod_type = config.getint('HODModel', 'HOD_type')
-    if hod_type == 1:
+    if hod_type in [1, 4, 7]:
         n_dim_hod_model = 3
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
         hod_param_init = [logMmin_init, logM1_init, alpha_init]
-
         hod_param_list = ["logMmin", "logM1", "alpha"]
 
-    elif hod_type == 2:
+    elif hod_type in [2, 5]:
         n_dim_hod_model = 5
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
-
         logSiglogM_init = config.getfloat('HODModel', 'logSiglogM_init')
         logM0_init = config.getfloat('HODModel', 'logM0_init')
-
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init, logM0_init]
-
         hod_param_list = ["logMmin", "logM1", "alpha", "logsiglogM", "logM0"]
 
-
-    elif hod_type == 3:
+    elif hod_type in [3, 6]:
         n_dim_hod_model = 4
         logMmin_init = config.getfloat('HODModel', 'logMmin_init')
         logM1_init = config.getfloat('HODModel', 'logM1_init')
         alpha_init = config.getfloat('HODModel', 'alpha_init')
-
         logSiglogM_init = config.getfloat('HODModel', 'logSiglogM_init')
-
         hod_param_init = [logMmin_init, logM1_init, alpha_init,
                           logSiglogM_init]
-
         hod_param_list = ["logMmin", "logM1", "alpha", "logsiglogM"]
 
-
     else:
-        raise ValueError("Allowed values of HOD_type are 1, 2 or 3")
+        raise ValueError("Allowed values of HOD_type are 1-7")
 
     # Read in the definitions of the priors for the HOD parameters
     hod_prior_definitions = read_prior_config(param_list=hod_param_list,

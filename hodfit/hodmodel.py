@@ -32,22 +32,44 @@ class HODModel(object):
         Parameters defining the HOD model:
 
         hod_type: defines the functional form of the model:
-            hod_type=1 --> Kravtsov (2004) model
-            hod_type=2 --> Zheng (2005) model
-            hod_type=3 --> Zheng (2005) model, with M0=Mmin (4 free parameters)
+            -   hod_type=1 --> Kravtsov (2004) model (3 free parameters):
+                    N_c(mass) = (1 if mass >= mass_min); (0 if mass < mass_min)
+                    N_s(mass) = N_c(mass)*(mass/mass_1)^alpha
+            -   hod_type=2 --> Zheng (2005) model (5 free parameters)
+                    N_c(mass) = (1/2)*[1 + erf((log mass - log mass_min)/siglogM)]
+                    N_s(mass) = [((mass - mass_0)/mass_1)^alpha if mass >= mass_0]; [0 if mass < mass_0]
+            -   hod_type=3 --> Zheng (2005) model, with M0=Mmin (4 free parameters)
+                    N_c(mass) = (1/2)*[1 + erf((log mass - log mass_min)/siglogM)]
+                    N_s(mass) = [((mass - mass_min)/mass_1)^alpha if mass >= mass_min]; [0 if mass < mass_min]
+            -   hod_type=4 --> Zheng (2005) model, with M0=Mmin and siglogM=0 (3 free parameters)
+                    N_c(mass) = (1 if mass >= mass_min); (0 if mass < mass_min)
+                    N_s(mass) = [((mass - mass_min)/mass_1)^alpha if mass >= mass_min]; [0 if mass < mass_min]
+            -   hod_type=5 --> Coupon (2012) model (5 free parameters)
+                    Model used in many other papers (e.g. Zehavi 2011).
+                    This is very similar to hod_type=2, but imposing the same N_c(mass) cut to the satellites
+                    N_c(mass) = (1/2)*[1 + erf((log mass - log mass_min)/siglogM)]
+                    N_s(mass) = N_c(mass)*[((mass - mass_0)/mass_1)^alpha]
+            -   hod_type=6 --> Coupon (2012) model, with M0=Mmin (4 free parameters)
+                    N_c(mass) = (1/2)*[1 + erf((log mass - log mass_min)/siglogM)]
+                    N_s(mass) = N_c(mass)*[((mass - mass_min)/mass_1)^alpha]
+            -   hod_type=7 --> Coupon (2012) model, with M0=Mmin and siglogM=0 (3 free parameters)
+                    N_c(mass) = (1 if mass >= mass_min); (0 if mass < mass_min)
+                    N_s(mass) = N_c(mass)*[((mass - mass_min)/mass_1)^alpha]
+
         mass_min: minimum mass for a halo to contain a galaxy
-        mass_1: mass of the haloes that contain, on average, one satellite
-            galaxy
+        mass_1: mass of the haloes that contain, on average, one satellite galaxy (this definition is exact only
+                for hod_type=1, for the other types it is only approximate, see definitions above)
         alpha: slope of the power-law relation
         siglogM: width of the transition from 0 to 1 centrals.
-            Only used if hod_type==2 or hod_type==3
+            Only used if hod_type is of types (2, 3, 5, 6)
         mass_0: minimum mass for a halo to contain a satellite galaxy.
-            Only used if hod_type==2
+            Only used if hod_type is of types (2 or 5)
         """
 
-        if(hod_type not in [1, 2, 3]):
+        if(hod_type not in [1, 2, 3, 4, 5, 6, 7]):
             raise ValueError("Allowed hod_type values are "
-                             "1 (Kravtsov), 2 (Zheng) or 3 (Zheng - 4params.)")
+                             "1 (Kravtsov), 2 (Zheng), 3 (Zheng - 4 params.), 4 (Zheng - 3 params.), "
+                             "5 (Coupon), 6 (Coupon - 4 params.), 7 (Coupon - 3 params.).")
 
         self.hod_type = hod_type
         self.mass_min = mass_min
@@ -62,6 +84,25 @@ class HODModel(object):
             self.siglogM = siglogM
             self.mass_0 = mass_min
             self.hod_type = 2
+
+        elif(hod_type == 4):
+            self.siglogM = 0
+            self.mass_0 = mass_min
+            self.hod_type = 2
+
+        elif(hod_type == 5):
+            self.siglogM = siglogM
+            self.mass_0 = mass_0
+
+        elif(hod_type == 6):
+            self.siglogM = siglogM
+            self.mass_0 = mass_min
+            self.hod_type = 5
+
+        elif(hod_type == 7):
+            self.siglogM = 0
+            self.mass_0 = mass_min
+            self.hod_type = 5
 
         # Mass-dependent arrays we will eventually use
         # Will need to be initialized elsewhere
@@ -87,7 +128,7 @@ class HODModel(object):
             # 1 if m>mass_min, 0 if m<=mass_min
             nc = np.array((mass > self.mass_min), float)
 
-        elif(self.hod_type == 2):
+        elif(self.hod_type in [2, 5]):
 
             term = (np.log10(mass) - np.log10(self.mass_min))/self.siglogM
             nc = 0.5*(1. + spc.erf(term))
@@ -108,10 +149,17 @@ class HODModel(object):
         if(self.hod_type == 1):
             ns = self.n_centrals(mass)*pow(mass/self.mass_1, self.alpha)
 
-        if(self.hod_type == 2):
+        elif(self.hod_type == 2):
             ns = np.where(mass > self.mass_0,
                           pow((mass - self.mass_0)/self.mass_1, self.alpha),
                           0.0)
+
+        elif(self.hod_type == 5):
+            # Have to include the mass_0 cut anyway to avoid NaN's when (mass - mass_0) is negative
+            ns = self.n_centrals(mass)*np.where(mass > self.mass_0,
+                                                pow((mass - self.mass_0)/self.mass_1, self.alpha),
+                                                0.0
+                                                )
 
         return ns
 
