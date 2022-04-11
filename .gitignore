@@ -21,3 +21,5 @@ default*results.json
 default.npz
 /*.egg-info
 /dist/
+.tags
+.idea
