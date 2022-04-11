@@ -10,6 +10,7 @@
 *.rel
 .spy*
 *.png
+*.npz
 test*chain.dat
 test*config.ini
 test*results.txt
@@ -21,3 +22,6 @@ default*results.json
 default.npz
 /*.egg-info
 /dist/
+.tags
+.idea
+hodfit/data/
