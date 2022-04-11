@@ -10,6 +10,7 @@
 *.rel
 .spy*
 *.png
+*.npz
 test*chain.dat
 test*config.ini
 test*results.txt
@@ -23,3 +24,4 @@ default.npz
 /dist/
 .tags
 .idea
+hodfit/data/
