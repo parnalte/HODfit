@@ -199,7 +199,7 @@ class HODModel(object):
 ###################
 
 # Perform the integrations following that done for
-# HaloModelMW02.integral_quantities()
+# HaloModel.integral_quantities()
 
 def dens_galaxies(hod_instance=None, halo_instance=None, logM_min=10.0,
                   logM_max=16.0, logM_step=0.05):
@@ -208,7 +208,7 @@ def dens_galaxies(hod_instance=None, halo_instance=None, logM_min=10.0,
        Following eq. (14) in C2012.
 
        hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
+       halo_instance: an instance of the hm.HaloModel class
     """
 
     # Check the mass array makes sense
@@ -267,7 +267,7 @@ def bias_gal_mean(hod_instance=None, halo_instance=None, logM_min=10.0,
        Following eq. (13) in C2012.
 
        hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
+       halo_instance: an instance of the hm.HaloModel class
     """
 
     # Check the mass array makes sense
@@ -323,7 +323,7 @@ def mean_halo_mass_hod(hod_instance=None, halo_instance=None, logM_min=10.0,
        Following eq. (15) in C2012.
 
        hod_instance: an instance of the HODModel class
-       halo_instance: an instance of the hm.HaloModelMW02 class
+       halo_instance: an instance of the hm.HaloModel class
     """
 
     # Check the mass array makes sense
@@ -378,7 +378,7 @@ def fraction_centrals(hod_instance=None, halo_instance=None, logM_min=10.0,
     Following eq. (16) in C2012.
 
     hod_instance: an instance of the HODModel class
-    halo_instance: an instance of the hm.HaloModelMW02 class
+    halo_instance: an instance of the hm.HaloModel class
     """
 
     # Check the mass array makes sense
@@ -432,7 +432,7 @@ def fraction_satellites(hod_instance=None, halo_instance=None, logM_min=10.0,
     Following eq. (17) in C2012.
 
     hod_instance: an instance of the HODModel class
-    halo_instance: an instance of the hm.HaloModelMW02 class
+    halo_instance: an instance of the hm.HaloModel class
     """
 
     f_cent = fraction_centrals(hod_instance=hod_instance,

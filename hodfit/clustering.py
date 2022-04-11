@@ -32,7 +32,7 @@ from .utils import PowerSpectrum, xir2wp_pi, get_camb_pk
 ################################
 
 # Basically, follow the same procedure as done for
-# halomodel.HaloModelMW02.integral_quantities() and
+# halomodel.HaloModel.integral_quantities() and
 # hodmodel.dens_galaxies
 
 def integral_centsatterm_array(rvalues, hod_instance=None, halo_instance=None,
@@ -846,7 +846,9 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         f_gal=1.0, gamma=1.0,
                         logM_min=8.0, logM_max=16.0, logM_step=0.005,
                         scale_dep_bias=True, use_mvir_limit=True,
-                        halo_exclusion_model=2, use_tinker_bias_params=True,
+                        halo_exclusion_model=2,
+                        mass_function_model='Sheth2001',
+                        bias_function_model='Tinker2005',
                         hankelN=6000, hankelh=0.0005, rmin=0.01, rmax=100.0,
                         nr=100, rlog=True,
                         fprof_grid_log_krvir=None, fprof_grid_log_conc=None,
@@ -904,20 +906,14 @@ Are you sure that is what you really want?")
                                    siglogM=hod_siglogM, mass_0=hod_mass_0)
 
     # Build the halo model object.
-    # We have two options for the parameters defining the bias:
-    # - Use the original bias parameters from Sheth (2001), MoWhite2002
-    # - Use the modified parameters following Tinker (2005)
-    if use_tinker_bias_params:
-        bpar = 0.35
-        cpar = 0.8
-    else:
-        bpar = 0.5
-        cpar = 0.6
-
-    halo_object = halomodel.HaloModelMW02(cosmo=cosmo_object,
-                                          powesp_lin_0=pk_linz0_object,
-                                          redshift=redshift,
-                                          par_b=bpar, par_c=cpar)
+    # we just pass the parameters identifying the required HMF and bias
+    # function models
+    halo_object = halomodel.HaloModel(cosmo=cosmo_object,
+                                      powesp_lin_0=pk_linz0_object,
+                                      redshift=redshift,
+                                      mass_function_model=mass_function_model,
+                                      bias_function_model=bias_function_model,
+                                      )
 
     # Now, create the Hankel FourierTransform object needed for the conversions
     # P(k) --> xi(r)

@@ -149,43 +149,95 @@ def nu_variable(mass=1e10, redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
     return dc/(Dz*sig)
 
 
-class HaloModelMW02(object):
-    """Class that contains all the functions related to the halo model defined
-       in MW02 (in particular eqs. 14,19), for a given cosmology
-       (and parameters).
+class HaloModel(object):
+    """
+        Class that contains the definition of the two main properties of the
+        halo population:
+        - the halo mass function (HMF)
+        - the bias function as function of mass (BFM)
+
+        We also include some mean quantities/properties (mean mass, mean bias, ...)
+        that can be obtained directly from the above.
+
+        We will implement different models for both the HMF and the BFM.
+        Models implemented so far:
+        * For the halo mass function (HMF)
+            - Model from Sheth et al. (2001), as defined by eq. (14) of
+              Mo&White (2002)
+
+        * For the bias as function of mass (BFM):
+            - Model from Sheth et al. (2001), as defined by eq. (19) of
+              Mo&White (2002)
+            - Model from Tinker et al. (2005), from their appendix A.
+              This is the same as the Sheth et al. (2001) model, but with
+              updated parameter values
+
+        References:
+        * Mo & White (2002), MNRAS, 336, 112-118
+        * Sheth et al. (2001), MNRAS, 323, 1-12
+        * Tinker et al. (2005), ApJ, 631, 41-58
     """
 
     def __init__(self, cosmo=ac.WMAP7, powesp_lin_0=None, redshift=0,
-                 par_Amp=0.322, par_a=1./np.sqrt(2.),
-                 par_b=0.5, par_c=0.6, par_q=0.3):
-        """Parameters defining the Halo Model:
+                 mass_function_model='Sheth2001',
+                 bias_function_model='Sheth2001'):
+        """
+        Parameters defining the Halo Model:
 
-           cosmo: an astropy.cosmology object defining the cosmology
-           powesp_lin_0: a PowerSpectrum object containing the z=0 linear
-               power spectrum corresponding to this same cosmology
-           redshift: redshift at which we do the calculations
-           par_Amp, par_a, par_b, par_c, par_q: parameters of the model.
-               Typically it's best to leave them at the defaults
+        cosmo: an astropy.cosmology object defining the cosmology
+        powesp_lin_0: a PowerSpectrum object containing the z=0 linear
+            power spectrum corresponding to this same cosmology
+        redshift: redshift at which we do the calculations
+        mass_function_model: string corresponding to the required HMF
+            model. Implemented models are: ['Sheth2001']
+        bias_function_model: string corresponding to the required BFM model.
+            Implemented models are ['Sheth2001', 'Tinker2005']
         """
 
         self.cosmo = cosmo
         self.powesp_lin_0 = powesp_lin_0
         self.redshift = redshift
-        self.par_Amp = par_Amp
-        self.par_a = par_a
-        self.par_b = par_b
-        self.par_c = par_c
-        self.par_q = par_q
+        self.hmf_model = mass_function_model
+        self.bfm_model = bias_function_model
+
+        # Check models and define needed parameters
+        hmf_implemented_models = ['Sheth2001', ]
+        bfm_implemented_models = ['Sheth2001', 'Tinker2005', ]
+
+        assert self.hmf_model in hmf_implemented_models, \
+            f"Model {self.hmf_model} not implemented for HMF"
+        assert self.bfm_model in bfm_implemented_models, \
+            f"Model {self.bfm_model} not implemented for BFM"
+
+        # Halo mass function
+        if self.hmf_model == 'Sheth2001':
+            self._hfm_formula = 'MoWhite2002'
+            self._par_MW_Amp = 0.322
+            self._par_MW_a = 1./np.sqrt(2.)
+            self._par_MW_q = 0.3
+
+        # Bias function
+        if self.bfm_model == 'Sheth2001':
+            self._bfm_formula = 'MoWhite2002'
+            self._par_MW_a = 1./np.sqrt(2.)
+            self._par_MW_b = 0.5
+            self._par_MW_c  =0.6
+
+        elif self.bfm_model == 'Tinker2005':
+            self._bfm_formula = 'MoWhite2002'
+            self._par_MW_a = 1./np.sqrt(2.)
+            self._par_MW_b = 0.35
+            self._par_MW_c = 0.8
+
 
         # Mass-dependent arrays we will eventually use
         # Will need to be initialized elsewhere
         self.mass_array = None
         self.Nm = 0
-        self.nuvar_array = None
         self.bias_array = None
         self.ndens_diff_m_array = None
 
-    def nu_variable(self, mass=1e12):
+    def _nu_variable(self, mass=1e12):
         """Make the conversion from halo mass to the 'nu' variable,
            for a given cosmology and redshift.
            Wrapper over external function 'nu_variable'.
@@ -196,54 +248,61 @@ class HaloModelMW02(object):
         return nu_variable(mass=mass, redshift=self.redshift, cosmo=self.cosmo,
                            powesp_lin_0=self.powesp_lin_0)
 
-    def bias_nu(self, nuval):
-        """Bias function (as function of nu) defined in eq. (19) of MW02
+    def _bias_nu_MW(self, nuval):
+        """
+        Bias function as function of nu defined in eq. (19) of Mo&White (2002)
 
-           This function works correctly when 'nuval' is an array.
+        This function works correctly when 'nuval' is an array.
         """
 
-        nu_alt = np.sqrt(self.par_a)*nuval
+        nu_alt = np.sqrt(self._par_MW_a)*nuval
         dc = delta_c_z(redshift=self.redshift, cosmo=self.cosmo)
 
         term1 = nu_alt**2.
-        term2 = self.par_b*pow(nu_alt, 2.*(1. - self.par_c))
-        denominator = pow(nu_alt, 2.*self.par_c) +\
-            (self.par_b*(1. - self.par_c)*(1. - (0.5*self.par_c)))
-        term3 = (pow(nu_alt, 2.*self.par_c)/np.sqrt(self.par_a))/denominator
+        term2 = self._par_MW_b*pow(nu_alt, 2.*(1. - self._par_MW_c))
+        denominator = pow(nu_alt, 2.*self._par_MW_c) +\
+            (self._par_MW_b*(1. - self._par_MW_c)*(1. - (0.5*self._par_MW_c)))
+        term3 = (pow(nu_alt, 2.*self._par_MW_c)/np.sqrt(self._par_MW_a))/denominator
 
         bias = 1. + ((term1 + term2 - term3)/dc)
 
         return bias
 
     def bias_fmass(self, mass=1e12):
-        """Bias function for haloes of a fixed mass, from above
+        """
+        Bias function for haloes of a fixed mass, from the corresponding
+        formula as function of the auxiliary variable nu/sigma/etc.
+        (depending on model).
 
-           This function works correctly when 'mass' is an array.
+        This function works correctly when 'mass' is an array.
         """
 
-        nuval = self.nu_variable(mass=mass)
+        if self._bfm_formula == 'MoWhite2002':
+            nuval = self._nu_variable(mass=mass)
+            return self._bias_nu_MW(nuval)
 
-        return self.bias_nu(nuval)
+    def _ndens_differential_MW(self, mass=1e12):
+        """
+        Calculates the 'differential' part of eq. (14) in Mo&White (2002).
+         [Note there's a typo in this equation: the mean mass density
+           has to be at z=0!]
 
-    def ndens_differential(self, mass=1e12):
-        """Calculates the 'differential' part of eq. (14) in MW02.
-           Note there's a typo in this equation: the mean mass density
-           has to be at z=0!
-           In order to get the appropriate integral terms, should integrate
-           ndens_differential*dnu
+        This is expressed as function of nu, so in order to get the appropriate
+        integral terms, should integrate
+            ndens_differential*dnu
 
-           This function works correctly when 'mass' is an array.
+        This function works correctly when 'mass' is an array.
         """
 
-        nuval = self.nu_variable(mass=mass)
-        nu_alt = np.sqrt(self.par_a)*nuval
+        nuval = self._nu_variable(mass=mass)
+        nu_alt = np.sqrt(self._par_MW_a)*nuval
 
         rho_mean_present = self.cosmo.Om0*RHO_CRIT_UNITS
 
         # The sqrt(a) term comes from the d(nu') term, so that
         # we can do the actual integral over nu
-        term1 = np.sqrt(self.par_a)*self.par_Amp*np.sqrt(2./np.pi)
-        term2 = 1. + (1./pow(nu_alt, 2*self.par_q))
+        term1 = np.sqrt(self._par_MW_a)*self._par_MW_Amp*np.sqrt(2./np.pi)
+        term2 = 1. + (1./pow(nu_alt, 2*self._par_MW_q))
         term3 = rho_mean_present/mass
         term4 = np.exp(-nu_alt*nu_alt/2.)
 
@@ -251,12 +310,13 @@ class HaloModelMW02(object):
 
     def ndens_diff_m(self, mass=1e12, delta_m_rel=1e-4):
         """
-        Calculates the 'differential' part of eq. (14) in MW02 including the
-        nu-to-mass transform. In this way, now the integral terms can be
-        obtained integrating directly ndens_diff_m*dM
+        Calculates the 'differential' part of the halo mass function,
+        already expressed in terms of mass, so that the integral terms
+        can be obtained integrating directly ndens_diff_m*dM.
 
-        This will be just a wrapper over ndens_differential() adding the
-        differential term dnu/dM.
+        This is usually obtained from the '_ndens_differential' expressed
+        in terms of the nu/sigma auxiliary variables adding the corresponding
+        differential term dnu/dM or dsigma/dM.
 
         The delta_m_rel parameter sets the relative spacing to be used in the
         finite differences approximation of the derivative.
@@ -264,14 +324,14 @@ class HaloModelMW02(object):
         This function works well when 'mass' is an array.
         """
 
-        dnudM = misc.derivative(func=self.nu_variable, x0=mass,
-                                dx=delta_m_rel*mass, n=1)
-
-        return dnudM*self.ndens_differential(mass=mass)
+        if self._hfm_formula == 'MoWhite2002':
+            dnudM = misc.derivative(func=self._nu_variable, x0=mass,
+                                    dx=delta_m_rel*mass, n=1)
+            return dnudM*self._ndens_differential_MW(mass=mass)
 
     def ndens_integral(self, logM_min=10.0, logM_max=16.0, logM_step=0.05):
         """
-        Compute the total number density of haloes given a range (and binning)
+        Computes the total number density of haloes given a range (and binning)
         in halo mass.
 
         Define the mass ranges in log10 space, units of M_sol.
@@ -384,7 +444,6 @@ class HaloModelMW02(object):
         self.mass_array = 10**np.arange(logM_min, logM_max, logM_step)
         self.Nm = len(self.mass_array)
 
-        self.nuvar_array = self.nu_variable(mass=self.mass_array)
-        self.bias_array = self.bias_nu(nuval=self.nuvar_array)
+        self.bias_array = self.bias_fmass(mass=self.mass_array)
         self.ndens_diff_m_array = \
             self.ndens_diff_m(mass=self.mass_array, delta_m_rel=delta_m_rel)
