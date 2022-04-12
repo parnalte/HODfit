@@ -171,16 +171,19 @@ class HaloModel(object):
             - Model from Tinker et al. (2005), from their appendix A.
               This is the same as the Sheth et al. (2001) model, but with
               updated parameter values
+            - Model from Tinker et al. (2010), from their eq. (6) and Table 2.
 
         References:
         * Mo & White (2002), MNRAS, 336, 112-118
         * Sheth et al. (2001), MNRAS, 323, 1-12
         * Tinker et al. (2005), ApJ, 631, 41-58
+        * Tinker et al. (2010), ApJ, 724, 878-886
     """
 
     def __init__(self, cosmo=ac.WMAP7, powesp_lin_0=None, redshift=0,
                  mass_function_model='Sheth2001',
-                 bias_function_model='Sheth2001'):
+                 bias_function_model='Sheth2001',
+                 Delta=200.):
         """
         Parameters defining the Halo Model:
 
@@ -191,7 +194,9 @@ class HaloModel(object):
         mass_function_model: string corresponding to the required HMF
             model. Implemented models are: ['Sheth2001']
         bias_function_model: string corresponding to the required BFM model.
-            Implemented models are ['Sheth2001', 'Tinker2005']
+            Implemented models are ['Sheth2001', 'Tinker2005', 'Tinker2010']
+        Delta: overdensity used to define the halo population. Only used for
+            certain models that use this as a parameter.
         """
 
         self.cosmo = cosmo
@@ -199,10 +204,11 @@ class HaloModel(object):
         self.redshift = redshift
         self.hmf_model = mass_function_model
         self.bfm_model = bias_function_model
+        self.par_Delta = Delta
 
         # Check models and define needed parameters
         hmf_implemented_models = ['Sheth2001', ]
-        bfm_implemented_models = ['Sheth2001', 'Tinker2005', ]
+        bfm_implemented_models = ['Sheth2001', 'Tinker2005', 'Tinker2010', ]
 
         assert self.hmf_model in hmf_implemented_models, \
             f"Model {self.hmf_model} not implemented for HMF"
@@ -228,6 +234,17 @@ class HaloModel(object):
             self._par_MW_a = 1./np.sqrt(2.)
             self._par_MW_b = 0.35
             self._par_MW_c = 0.8
+
+        elif self.bfm_model == 'Tinker2010':
+            self._bfm_formula = 'Tinker2010'
+            # Define parameters from Table 2 of the paper
+            y = np.log10(self.par_Delta)
+            self._par_T10_A = 1.0 + 0.24*y*np.exp(-pow(4/y,4))
+            self._par_T10_a = 0.44*y - 0.88
+            self._par_T10_B = 0.183
+            self._par_T10_b = 1.5
+            self._par_T10_C = 0.019 + 0.107*y + 0.19*np.exp(-pow(4/y, 4))
+            self._par_T10_c = 2.4
 
 
         # Mass-dependent arrays we will eventually use
@@ -268,6 +285,22 @@ class HaloModel(object):
 
         return bias
 
+    def _bias_nu_T10(self, nuval):
+        """
+        Bias function as function of nu defined in eq. (6) of Tinker et al. (2010).
+
+        """
+        dc = delta_c_z(redshift=self.redshift, cosmo=self.cosmo)
+
+        term_a = self._par_T10_A*(nuval**self._par_T10_a)/((nuval**self._par_T10_a) + (dc**self._par_T10_a))
+        term_b = self._par_T10_B*(nuval**self._par_T10_b)
+        term_c = self._par_T10_C*(nuval**self._par_T10_c)
+
+        return 1. - term_a + term_b + term_c
+
+
+
+
     def bias_fmass(self, mass=1e12):
         """
         Bias function for haloes of a fixed mass, from the corresponding
@@ -280,6 +313,10 @@ class HaloModel(object):
         if self._bfm_formula == 'MoWhite2002':
             nuval = self._nu_variable(mass=mass)
             return self._bias_nu_MW(nuval)
+
+        elif self._bfm_formula == 'Tinker2010':
+            nuval = self._nu_variable(mass=mass)
+            return self._bias_nu_T10(nuval)
 
     def _ndens_differential_MW(self, mass=1e12):
         """
