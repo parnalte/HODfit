@@ -10,7 +10,7 @@ Last modified: 19/02/2014
 This module will contain the classes and functions related to the halo model
 (i.e. halo mass functions, halo bias, etc.)
 
-Units: all masses will be in M_sol, and all distances in Mpc/h.
+Units: all masses will be in M_sol/h, and all distances in Mpc/h.
 
 References in comments:
     C2012: Coupon et al. (2012) A&A, 542:A5
