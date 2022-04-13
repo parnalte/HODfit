@@ -14,7 +14,7 @@ TODO:
 from setuptools import setup
 
 setup(name='hodfit',
-      version='0.18dev',
+      version='0.18',
       description='Fit HOD models to wp(rp) data',
       url='https://github.com/parnalte/HODfit',
       author='Pablo Arnalte-Mur',
