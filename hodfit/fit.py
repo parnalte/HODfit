@@ -1170,9 +1170,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
 
     # Read in parameters related to the halo model used, and to
     # details related to the halo mass-related calculations
-    mass_function_model = config.get('HaloModelCalc', mass_function_model)
-    bias_function_model = config.get('HaloModelCalc', bias_function_model)
-    delta_halo_mass = config.getfloat('HaloModelCalc', delta_halo_mass)
+    mass_function_model = config.get('HaloModelCalc', 'mass_function_model')
+    bias_function_model = config.get('HaloModelCalc', 'bias_function_model')
+    delta_halo_mass = config.getfloat('HaloModelCalc', 'delta_halo_mass')
 
     logMmin = config.getfloat('HaloModelCalc', 'logMmin')
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
