@@ -15,6 +15,7 @@ Units: all masses will be in M_sol, and all distances in Mpc/h.
 References in comments:
     C2012: Coupon et al. (2012) A&A, 542:A5
     MW02:  Mo & White (2002) MNRAS, 336:112
+    Additional references in docstring for HaloModel class
 
 
 TODO:
@@ -22,6 +23,8 @@ TODO:
        (Scipy's 'quad'), so we avoid the need to (arbitrarily) define a
        spacing in logM. This would only work if we transform ndens_diff_m
        so that we can integrate in d(logM), instead of d(M).
+TODO:
+    Implement Tinker-2008 model for the HMF (seems standard today)
 """
 
 
