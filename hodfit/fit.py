@@ -1168,6 +1168,12 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
         camb_kmax = None
         camb_k_per_logint = None
 
+    # Read in parameters related to the halo model used, and to
+    # details related to the halo mass-related calculations
+    mass_function_model = config.get('HaloModelCalc', mass_function_model)
+    bias_function_model = config.get('HaloModelCalc', bias_function_model)
+    delta_halo_mass = config.getfloat('HaloModelCalc', delta_halo_mass)
+
     logMmin = config.getfloat('HaloModelCalc', 'logMmin')
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
     logMstep = config.getfloat('HaloModelCalc', 'logMstep')
@@ -1231,6 +1237,9 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        rmin=rmin, rmax=rmax, nr=wpcalc_nr,
                                        rlog=True,
                                        halo_exclusion_model=halo_exclusion_model,
+                                       mass_function_model=mass_function_model,
+                                       bias_function_model=bias_function_model,
+                                       delta_halo_mass=delta_halo_mass,
                                        fprof_grid_log_krvir=fprof_grid_log_krvir,
                                        fprof_grid_log_conc=fprof_grid_log_conc,
                                        fprof_grid_gamma=fprof_grid_gamma,
