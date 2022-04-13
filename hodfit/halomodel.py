@@ -148,6 +148,22 @@ def nu_variable(mass=1e10, redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
 
     return dc/(Dz*sig)
 
+def sigma_variable(mass=1e10, redshift=0, cosmo=ac.WMAP7, powesp_lin_0=None):
+    """
+    Make the conversion from halo mass to the 'sigma' variable needed
+    in some cases to model the HMF, for a given cosmology and redshift.
+    This is from eq. (1) of Watson et al. (2013)
+
+    Units: masses in M_sol, distances (and powesp) in Mpc/h
+    The power spectrum should be the z=0, linear power spectrum
+    corresponding to the Cosmology 'cosmo' used.
+    """
+
+    Dz = growth_factor_linear(redshift=redshift, cosmo=cosmo)
+    sig_z0 = sigma_mass(mass=mass, cosmo=cosmo, powesp_lin_0=powesp_lin_0)
+
+    return Dz*sig_z0
+
 
 class HaloModel(object):
     """
@@ -164,6 +180,8 @@ class HaloModel(object):
         * For the halo mass function (HMF)
             - Model from Sheth et al. (2001), as defined by eq. (14) of
               Mo&White (2002)
+            - 'FOF-Universal' model from Watson et al. (2013), from their
+              eq. (12)
 
         * For the bias as function of mass (BFM):
             - Model from Sheth et al. (2001), as defined by eq. (19) of
@@ -178,6 +196,7 @@ class HaloModel(object):
         * Sheth et al. (2001), MNRAS, 323, 1-12
         * Tinker et al. (2005), ApJ, 631, 41-58
         * Tinker et al. (2010), ApJ, 724, 878-886
+        * Watson et al. (2013), MNRAS, 433, 1230-1245
     """
 
     def __init__(self, cosmo=ac.WMAP7, powesp_lin_0=None, redshift=0,
@@ -207,7 +226,7 @@ class HaloModel(object):
         self.par_Delta = Delta
 
         # Check models and define needed parameters
-        hmf_implemented_models = ['Sheth2001', ]
+        hmf_implemented_models = ['Sheth2001', 'Watson2013-FOF']
         bfm_implemented_models = ['Sheth2001', 'Tinker2005', 'Tinker2010', ]
 
         assert self.hmf_model in hmf_implemented_models, \
@@ -221,6 +240,13 @@ class HaloModel(object):
             self._par_MW_Amp = 0.322
             self._par_MW_a = 1./np.sqrt(2.)
             self._par_MW_q = 0.3
+
+        elif self.hmf_model == 'Watson2013-FOF':
+            self._hfm_formula = 'Watson2013'
+            self._par_W13_A = 0.282
+            self._par_W13_alpha = 2.163
+            self._par_W13_beta = 1.406
+            self._par_W13_gamma = 1.210
 
         # Bias function
         if self.bfm_model == 'Sheth2001':
@@ -264,6 +290,16 @@ class HaloModel(object):
 
         return nu_variable(mass=mass, redshift=self.redshift, cosmo=self.cosmo,
                            powesp_lin_0=self.powesp_lin_0)
+
+    def _sigma_variable(self, mass=1e12):
+        """
+        Make the conversion from halo mass to the 'sigma' variable used in
+        certain HMF models.
+        Wrapper over external function 'sigma_variable'.
+        """
+
+        return sigma_variable(mass=mass, redshift=self.redshift,
+                              cosmo=self.cosmo,powesp_lin_0=self.powesp_lin_0)
 
     def _bias_nu_MW(self, nuval):
         """
@@ -345,15 +381,28 @@ class HaloModel(object):
 
         return term1*term2*term3*term4
 
+    def _f_sigma_W13(self, mass=1e12):
+        """
+        Calculates the 'halo multiplicity function' as function of the
+        sigma variable according to eq. (12) in Watson et al. (2013)
+        """
+
+        sigmavar = self._sigma_variable(mass=mass)
+
+        term1 = ((self._par_W13_beta/sigmavar)**self._par_W13_alpha) + 1.
+        term2 = np.exp(-self._par_W13_gamma/(sigmavar**2))
+
+        return self._par_W13_A*term1*term2
+
     def ndens_diff_m(self, mass=1e12, delta_m_rel=1e-4):
         """
         Calculates the 'differential' part of the halo mass function,
         already expressed in terms of mass, so that the integral terms
         can be obtained integrating directly ndens_diff_m*dM.
 
-        This is usually obtained from the '_ndens_differential' expressed
+        This is obtained from the '_ndens_differential' or 'f' expressed
         in terms of the nu/sigma auxiliary variables adding the corresponding
-        differential term dnu/dM or dsigma/dM.
+        differential term dnu/dM or dsigma/dM and/or additional needed terms.
 
         The delta_m_rel parameter sets the relative spacing to be used in the
         finite differences approximation of the derivative.
@@ -365,6 +414,20 @@ class HaloModel(object):
             dnudM = misc.derivative(func=self._nu_variable, x0=mass,
                                     dx=delta_m_rel*mass, n=1)
             return dnudM*self._ndens_differential_MW(mass=mass)
+
+        elif self._hfm_formula == 'Watson2013':
+            # Add terms from eq. (5) of the Watson paper
+            rho_mean_present = self.cosmo.Om0*RHO_CRIT_UNITS
+
+            def ln_invsigma_lnM(lnM):
+                mass = np.exp(lnM)
+                return np.log(1./self._sigma_variable(mass))
+
+            d_lninvsigma_d_lnM = misc.derivative(func=ln_invsigma_lnM,
+                                                 x0=np.log(mass),
+                                                 dx=delta_m_rel*np.log(mass),
+                                                 n=1)
+            return rho_mean_present*self._f_sigma_W13(mass=mass)*d_lninvsigma_d_lnM/(mass**2)
 
     def ndens_integral(self, logM_min=10.0, logM_max=16.0, logM_step=0.05):
         """
