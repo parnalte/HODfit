@@ -1173,6 +1173,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
     mass_function_model = config.get('HaloModelCalc', 'mass_function_model')
     bias_function_model = config.get('HaloModelCalc', 'bias_function_model')
     delta_halo_mass = config.getfloat('HaloModelCalc', 'delta_halo_mass')
+    bias_scale_factor = config.getfloat('HaloModelCalc', 'bias_scale_factor')
 
     logMmin = config.getfloat('HaloModelCalc', 'logMmin')
     logMmax = config.getfloat('HaloModelCalc', 'logMmax')
@@ -1240,6 +1241,7 @@ def main(paramfile="hodfit_params_default.ini", output_prefix="default"):
                                        mass_function_model=mass_function_model,
                                        bias_function_model=bias_function_model,
                                        delta_halo_mass=delta_halo_mass,
+                                       bias_scale_factor=bias_scale_factor,
                                        fprof_grid_log_krvir=fprof_grid_log_krvir,
                                        fprof_grid_log_conc=fprof_grid_log_conc,
                                        fprof_grid_gamma=fprof_grid_gamma,
