@@ -207,7 +207,8 @@ class HaloModel(object):
                  mass_function_model='Sheth2001',
                  bias_function_model='Sheth2001',
                  Delta=200.,
-                 scale_factor=1.0):
+                 scale_factor_nu=1.0,
+                 scale_factor_b=None):
         """
         Parameters defining the Halo Model:
 
@@ -221,8 +222,11 @@ class HaloModel(object):
             Implemented models are ['Sheth2001', 'Tinker2005', 'Tinker2010']
         Delta: overdensity used to define the halo population. Only used for
             certain models that use this as a parameter.
-        scale_factor: parameter to re-scale nu values in the modified version of Tinker2010 to match Pinocchio.
-            When scale_factor = 1.0, just recover standard Tinker2010.
+        scale_factor_nu: parameter to re-scale nu values in the modified version of Tinker2010 to match Pinocchio.
+            When scale_factor_nu = 1.0, just recover standard Tinker2010.
+        scale_factor_b: parameter to re-scale directly the bias value obtained by 
+            the given bias model, as bias = scale_factor_b*bias_model.
+            If scale_factor_b = None or 1.0, we just recover the standard value from the model.
         """
 
         self.cosmo = cosmo
@@ -231,7 +235,8 @@ class HaloModel(object):
         self.hmf_model = mass_function_model
         self.bfm_model = bias_function_model
         self.par_Delta = Delta
-        self.par_scale = scale_factor
+        self.par_scale_nu = scale_factor_nu
+        self.par_scale_b = scale_factor_b
 
         # Check models and define needed parameters
         hmf_implemented_models = ['Sheth2001', 'Watson2013-FOF']
@@ -356,11 +361,17 @@ class HaloModel(object):
 
         if self._bfm_formula == 'MoWhite2002':
             nuval = self._nu_variable(mass=mass)
-            return self._bias_nu_MW(nuval)
+            if self.par_scale_b is None:
+                return self._bias_nu_MW(nuval)
+            else:
+                return self._bias_nu_MW(nuval)*self.par_scale_b
 
         elif self._bfm_formula == 'Tinker2010':
-            nuval = self._nu_variable(mass=mass)*self.par_scale
-            return self._bias_nu_T10(nuval)
+            nuval = self._nu_variable(mass=mass)*self.par_scale_nu
+            if self.par_scale_b is None:
+                return self._bias_nu_T10(nuval)
+            else:
+                return self._bias_nu_T10(nuval)*self.par_scale_b
 
     def _ndens_differential_MW(self, mass=1e12):
         """

@@ -851,7 +851,8 @@ def hod_from_parameters(redshift=0, OmegaM0=0.27, OmegaL0=0.73,
                         mass_function_model='Sheth2001',
                         bias_function_model='Tinker2005',
                         delta_halo_mass=200.0,
-                        bias_scale_factor=1.0,
+                        bias_scale_factor_nu=1.0,
+                        bias_scale_factor_b=None,
                         hankelN=6000, hankelh=0.0005, rmin=0.01, rmax=100.0,
                         nr=100, rlog=True,
                         fprof_grid_log_krvir=None, fprof_grid_log_conc=None,
@@ -917,7 +918,8 @@ Are you sure that is what you really want?")
                                       mass_function_model=mass_function_model,
                                       bias_function_model=bias_function_model,
                                       Delta=delta_halo_mass,
-                                      scale_factor=bias_scale_factor,
+                                      scale_factor_nu=bias_scale_factor_nu,
+                                      scale_factor_b=bias_scale_factor_b,
                                       )
 
     # Now, create the Hankel FourierTransform object needed for the conversions
